@@ -1,13 +1,13 @@
 // функция для совершения действия с задержкой (для анимированного рисования)
 window.requestAnimFrame = (function (callback) {
     return function (callback) {
-            window.setTimeout(callback, 40);
-        };
+        window.setTimeout(callback, 40);
+    };
 })();
 
 /*
-Функция "Maze" создает javascript-прототип (или, иначе говоря, класс) объекта лабиринта. Этому прототипу назначаются
-свои функции (иначе говоря, методы класса).
+ Функция "Maze" создает javascript-прототип (или, иначе говоря, класс) объекта лабиринта. Этому прототипу назначаются
+ свои функции (иначе говоря, методы класса).
  */
 
 // функция-конструктор объекта лабиринта
@@ -43,7 +43,9 @@ function Maze(canvasObject, cellsX, cellsY) {
     this.generate();
 }
 
-// анимированно рисует маршрут
+/**
+ * анимированно рисует маршрут
+ */
 Maze.prototype.drawRouteAnimated = function () {
     if (this.route && this.route.length > 0) {
         this.animRouteFrameBuffer = this.route;
@@ -52,7 +54,9 @@ Maze.prototype.drawRouteAnimated = function () {
 
 };
 
-// рекурсивная функция, рисует маршрут по сегментам последовательно
+/**
+ * рекурсивная функция, рисует маршрут по сегментам последовательно
+ */
 Maze.prototype.animate = function () {
     // update
     this.animRoute.push(this.animRouteFrameBuffer.splice(0, 1)[0]);
@@ -117,7 +121,7 @@ Maze.prototype.generateCells = function () {
     }
     // выбираем начальные точки для рисования туннелей
     var arStartCells = [];
-    for(var i = 0; i < 30; i++) {
+    for (var i = 0; i < 30; i++) {
         var startCell = [Math.round(Math.random() * this.cellsX), Math.round(Math.random() * this.cellsY)];
         arStartCells.push(startCell);
     }
@@ -200,7 +204,7 @@ Maze.prototype.generateCellsRecursive = function (arGrowingCells) {
         }
         // if found add it to growing cells and set maze cell as empty
         if (sideCell.length > 0) {
-            if(Math.random() > 0.005) {
+            if (Math.random() > 0.005) {
                 arGrowingCellsNew.push(sideCell);
             }
             this.cells[sideCell[0]][sideCell[1]].type = Cell.TYPE_EMPTY;
@@ -347,7 +351,7 @@ Maze.prototype.setEndPoint = function (cellX, cellY) {
 Maze.prototype.__startPointPick = function (clickHandler) {
     this.funPointPickHandler = clickHandler;
     var _this = this;
-    this.pointPickListener = function(event) {
+    this.pointPickListener = function (event) {
         _this.mouseClickListener(event, _this);
     };
     if (this.canvas.addEventListener) {
@@ -430,6 +434,17 @@ Maze.prototype.setRoute = function (oRoute) {
     this.route = oRoute;
 };
 
+Maze.prototype.startSolve = function () {
+    request({
+        "action": "set_info",
+        "maze": this.cells
+    }, this.requestHandler);
+};
+
+Maze.prototype.requestHandler = function (oResponse) {
+    alert(JSON.stringify(oResponse));
+};
+
 // класс ячейки лабиринта, нужен для упрощения работы с ячейками
 // содержит информацию о типе ячейки (стена или проходимая ячейка) и о том, выбрана ячейка или нет
 function Cell(type) {
@@ -457,3 +472,49 @@ Cell.prototype.setType = function (type) {
 Cell.prototype.getType = function () {
     return this.type;
 };
+
+// получает объект xmlHttpRequest в зависимости от браузера
+function getXmlHttp() {
+    var xmlhttp;
+    try {
+        xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+    } catch (e) {
+        try {
+            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+        } catch (E) {
+            xmlhttp = false;
+        }
+    }
+    if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
+        xmlhttp = new XMLHttpRequest();
+    }
+    return xmlhttp;
+}
+
+function request(oRequestParams, funResponseHandler) {
+    /** @type XMLHttpRequest */
+    var req = getXmlHttp();
+    var sRequest = "json=" + JSON.stringify(oRequestParams);
+    var oResponse = {};
+    req.onreadystatechange = function () {
+        if (req.readyState == 4) {
+            if (req.status == 200) {
+                oResponse = JSON.parse(req.responseText);
+            }
+            oResponse.status = req.status;
+            funResponseHandler(oResponse);
+        }
+
+    };
+    req.open('POST', '/solver_hevristic.php', true);
+    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    req.setRequestHeader("Content-length", sRequest.length);
+    req.setRequestHeader("Connection", "close");
+
+    try {
+        req.send(sRequest);
+    } catch (e) {
+        oResponse.error = "Не удалось отправить запрос на сервер (" + e.message + ")";
+        funResponseHandler(oResponse);
+    }
+}
