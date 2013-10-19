@@ -64,6 +64,8 @@ Maze.prototype.clear = function () {
             this.cells[cellX][cellY] = new Cell();
         }
     }
+    this.startCell = [];
+    this.endCell = [];
     this.clearRoute();
     this.clearCanvas();
 };
