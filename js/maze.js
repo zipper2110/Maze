@@ -1,13 +1,13 @@
 // функция для совершения действия с задержкой (для анимированного рисования)
 window.requestAnimFrame = (function (callback) {
     return function (callback) {
-            window.setTimeout(callback, 40);
-        };
+        window.setTimeout(callback, 40);
+    };
 })();
 
 /*
-Функция "Maze" создает javascript-прототип (или, иначе говоря, класс) объекта лабиринта. Этому прототипу назначаются
-свои функции (иначе говоря, методы класса).
+ Функция "Maze" создает javascript-прототип (или, иначе говоря, класс) объекта лабиринта. Этому прототипу назначаются
+ свои функции (иначе говоря, методы класса).
  */
 
 // функция-конструктор объекта лабиринта
@@ -40,48 +40,23 @@ function Maze(canvasObject, cellsX, cellsY) {
     this.animRoute = [];
     this.animRouteFrameBuffer = [];
 
+    this.statusChangeListener = null;
+
     this.generate();
 }
 
-// анимированно рисует маршрут
-Maze.prototype.drawRouteAnimated = function () {
-    if (this.route && this.route.length > 0) {
-        this.animRouteFrameBuffer = this.route;
-        this.animate();
-    }
-
-};
-
-// рекурсивная функция, рисует маршрут по сегментам последовательно
-Maze.prototype.animate = function () {
-    // update
-    this.animRoute.push(this.animRouteFrameBuffer.splice(0, 1)[0]);
-    // clear
-
-    // draw stuff
-    this.refresh();
-    // request new frame
-    if (this.animRouteFrameBuffer.length > 0) {
-        requestAnimFrame(function () {
-            maze.animate();
-        });
-    }
-};
-
-// функция создания случайного лабиринта
+/**
+ * функция создания случайного лабиринта
+ */
 Maze.prototype.generate = function () {
     this.clear();
     this.generateCells();
     this.redraw();
 };
 
-// перерисовывает лабиринт заново
-Maze.prototype.refresh = function () {
-    this.clearCanvas();
-    this.redraw();
-};
-
-// стирает лабиринт с экрана
+/**
+ * стирает лабиринт
+ */
 Maze.prototype.clear = function () {
     for (var cellX = 0; cellX < this.cellsX; cellX++) {
         for (var cellY = 0; cellY < this.cellsY; cellY++) {
@@ -93,21 +68,165 @@ Maze.prototype.clear = function () {
     this.clearCanvas();
 };
 
-// очищает маршрут
-Maze.prototype.clearRoute = function () {
-    this.route = "";
-    this.animRoute = [];
-    this.animRouteFrameBuffer = [];
+/**
+ * перерисовывает лабиринт заново
+ */
+Maze.prototype.refresh = function () {
+    this.clearCanvas();
+    this.redraw();
 };
 
-// рисует лабиринт
+// выбор точки старта маршрута
+Maze.prototype.pickStartPoint = function () {
+    this.__startPointPick(this.setStartPoint);
+};
+
+// выбор точки финиша
+Maze.prototype.pickEndPoint = function () {
+    this.__startPointPick(this.setEndPoint);
+};
+
+/**********************************************************/
+// управление визуальной частью лабиринта
+
+/**
+ * рисует лабиринт
+ */
 Maze.prototype.redraw = function () {
     this.drawBackground();
     this.draw();
     this.drawRoute();
 };
 
-// генерирует значение в ячейках лабиринта
+// заполняет фон лабиринта
+Maze.prototype.drawBackground = function () {
+    this.canvasContext.fillStyle = this.FILL_STYLE_BACKGROUND;
+    this.canvasContext.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+};
+
+// очищает изображение
+Maze.prototype.clearCanvas = function () {
+    this.canvasContext.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+};
+
+// отрисовывет ячейки лабиринта
+Maze.prototype.draw = function () {
+    for (var cellX = 0; cellX < this.cellsX; cellX++) {
+        for (var cellY = 0; cellY < this.cellsY; cellY++) {
+            this.drawBlock(cellX, cellY, this.cells[cellX][cellY]);
+        }
+    }
+};
+
+// рисует маршрут без анимации
+Maze.prototype.drawRoute = function () {
+    if (this.animRoute && this.animRoute.length > 0) {
+        this.canvasContext.lineJoin = 'round';
+        this.canvasContext.lineWidth = 2;
+        this.canvasContext.strokeStyle = "#FF0000";
+        this.canvasContext.beginPath();
+        var _this = this;
+        for (var i in this.animRoute) {
+            if (i < this.animRoute.length - 1) {
+                var cellFrom = this.animRoute[i];
+                var cellTo = this.animRoute[parseInt(i) + 1];
+                this.drawRouteLine([cellFrom[0], cellFrom[1]], [cellTo[0], cellTo[1]]);
+            }
+        }
+        this.canvasContext.stroke();
+    }
+};
+
+// рисует один сегмент маршрута между соседними ячейками
+Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
+    var cellWidth = this.canvasWidth / this.cellsX;
+    var cellHeight = this.canvasHeight / this.cellsY;
+    var xFrom = cellFrom[0] * cellWidth + cellWidth / 2;
+    var yFrom = cellFrom[1] * cellHeight + cellHeight / 2;
+    var xTo = cellTo[0] * cellWidth + cellWidth / 2;
+    var yTo = cellTo[1] * cellHeight + cellHeight / 2;
+    this.canvasContext.moveTo(xFrom, yFrom);
+    this.canvasContext.lineTo(xTo, yTo);
+    this.canvasContext.stroke();
+};
+
+// рисует одну ячейку лабиринта
+Maze.prototype.drawBlock = function (cellX, cellY, cell) {
+    var cellWidth = this.canvasWidth / this.cellsX;
+    var cellHeight = this.canvasHeight / this.cellsY;
+    var fillStyle = null;
+    var blockType = cell.getType();
+    switch (blockType) {
+        case Cell.TYPE_WALL:
+            fillStyle = this.FILL_STYLE_BLOCK_CELL;
+            break;
+        default:
+            fillStyle = this.FILL_STYLE_EMPTY_CELL;
+            break;
+    }
+    this.canvasContext.fillStyle = fillStyle;
+    this.canvasContext.fillRect(cellWidth * cellX, cellHeight * cellY, cellWidth * (cellX + 1), cellHeight * (cellY + 1));
+    if (cell.isSelected()) {
+        if (this.startCell && this.startCell.length > 0 && this.startCell[0] == cellX && this.startCell[1] == cellY) {
+            fillStyle = this.FILL_STYLE_START_CELL;
+        } else if (this.endCell && this.endCell.length > 0 && this.endCell[0] == cellX && this.endCell[1] == cellY) {
+            fillStyle = this.FILL_STYLE_FINISH_CELL;
+        } else {
+            fillStyle = this.FILL_STYLE_SELECTED_CELL;
+        }
+        this.canvasContext.fillStyle = fillStyle;
+        this.canvasContext.beginPath();
+        this.canvasContext.strokeStyle = "rgba(0, 0, 0, 0)";
+        this.canvasContext.arc(cellWidth * cellX + cellWidth / 2, cellHeight * cellY + cellHeight / 2, Math.min(cellWidth, cellHeight) / 2, 0, 2 * Math.PI, false);
+        this.canvasContext.fill();
+        this.canvasContext.stroke();
+    }
+};
+
+/**
+ * анимированно рисует маршрут
+ */
+Maze.prototype.drawRouteAnimated = function () {
+    if (this.route && this.route.length > 0) {
+        this.animRouteFrameBuffer = this.route;
+        this.animate();
+    }
+
+};
+
+/**
+ * рекурсивная функция, рисует маршрут по сегментам последовательно
+ */
+Maze.prototype.animate = function () {
+    // update
+    this.animRoute.push(this.animRouteFrameBuffer.splice(0, 1)[0]);
+    // clear
+
+    // draw stuff
+    this.drawRoute();
+    // request new frame
+    if (this.animRouteFrameBuffer.length > 0) {
+        requestAnimFrame(function () {
+            maze.animate();
+        });
+    }
+};
+
+/***********************************************************/
+// управление состоянием объекта
+
+/**
+ * очищает маршрут
+ */
+Maze.prototype.clearRoute = function () {
+    this.route = "";
+    this.animRoute = [];
+    this.animRouteFrameBuffer = [];
+};
+
+/**
+ * генерирует значение в ячейках лабиринта
+ */
 Maze.prototype.generateCells = function () {
     // заполняем весь лабиринт стеной
     for (var cellX = 0; cellX < this.cellsX; cellX++) {
@@ -117,7 +236,7 @@ Maze.prototype.generateCells = function () {
     }
     // выбираем начальные точки для рисования туннелей
     var arStartCells = [];
-    for(var i = 0; i < 30; i++) {
+    for (var i = 0; i < 30; i++) {
         var startCell = [Math.round(Math.random() * this.cellsX), Math.round(Math.random() * this.cellsY)];
         arStartCells.push(startCell);
     }
@@ -200,7 +319,7 @@ Maze.prototype.generateCellsRecursive = function (arGrowingCells) {
         }
         // if found add it to growing cells and set maze cell as empty
         if (sideCell.length > 0) {
-            if(Math.random() > 0.005) {
+            if (Math.random() > 0.005) {
                 arGrowingCellsNew.push(sideCell);
             }
             this.cells[sideCell[0]][sideCell[1]].type = Cell.TYPE_EMPTY;
@@ -236,90 +355,8 @@ Maze.prototype.generateCellsRecursive = function (arGrowingCells) {
     }
 };
 
-// отрисовывет ячейки лабиринта
-Maze.prototype.draw = function () {
-    for (var cellX = 0; cellX < this.cellsX; cellX++) {
-        for (var cellY = 0; cellY < this.cellsY; cellY++) {
-            this.drawBlock(cellX, cellY, this.cells[cellX][cellY]);
-        }
-    }
-};
-
-// рисует маршрут без анимации
-Maze.prototype.drawRoute = function () {
-    if (this.animRoute && this.animRoute.length > 0) {
-        this.canvasContext.lineJoin = 'round';
-        this.canvasContext.lineWidth = 2;
-        this.canvasContext.strokeStyle = "#FF0000";
-        this.canvasContext.beginPath();
-        var _this = this;
-        for (var i in this.animRoute) {
-            if (i < this.animRoute.length - 1) {
-                var cellFrom = this.animRoute[i];
-                var cellTo = this.animRoute[parseInt(i) + 1];
-                this.drawRouteLine([cellFrom[0], cellFrom[1]], [cellTo[0], cellTo[1]]);
-            }
-        }
-        this.canvasContext.stroke();
-    }
-};
-
-// рисует один сегмент маршрута между соседними ячейками
-Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
-    var cellWidth = this.canvasWidth / this.cellsX;
-    var cellHeight = this.canvasHeight / this.cellsY;
-    var xFrom = cellFrom[0] * cellWidth + cellWidth / 2;
-    var yFrom = cellFrom[1] * cellHeight + cellHeight / 2;
-    var xTo = cellTo[0] * cellWidth + cellWidth / 2;
-    var yTo = cellTo[1] * cellHeight + cellHeight / 2;
-    this.canvasContext.moveTo(xFrom, yFrom);
-    this.canvasContext.lineTo(xTo, yTo);
-    this.canvasContext.stroke();
-};
-
-// рисует одну ячейку лабиринта
-Maze.prototype.drawBlock = function (cellX, cellY, cell) {
-    var cellWidth = this.canvasWidth / this.cellsX;
-    var cellHeight = this.canvasHeight / this.cellsY;
-    var fillStyle = null;
-    var blockType = cell.getType();
-    switch (blockType) {
-        case Cell.TYPE_WALL:
-            fillStyle = this.FILL_STYLE_BLOCK_CELL;
-            break;
-        default:
-            fillStyle = this.FILL_STYLE_EMPTY_CELL;
-            break;
-    }
-    this.canvasContext.fillStyle = fillStyle;
-    this.canvasContext.fillRect(cellWidth * cellX, cellHeight * cellY, cellWidth * (cellX + 1), cellHeight * (cellY + 1));
-    if (cell.isSelected()) {
-        if (this.startCell && this.startCell.length > 0 && this.startCell[0] == cellX && this.startCell[1] == cellY) {
-            fillStyle = this.FILL_STYLE_START_CELL;
-        } else if (this.endCell && this.endCell.length > 0 && this.endCell[0] == cellX && this.endCell[1] == cellY) {
-            fillStyle = this.FILL_STYLE_FINISH_CELL;
-        } else {
-            fillStyle = this.FILL_STYLE_SELECTED_CELL;
-        }
-        this.canvasContext.fillStyle = fillStyle;
-        this.canvasContext.beginPath();
-        this.canvasContext.strokeStyle = "rgba(0, 0, 0, 0)";
-        this.canvasContext.arc(cellWidth * cellX + cellWidth / 2, cellHeight * cellY + cellHeight / 2, Math.min(cellWidth, cellHeight) / 2, 0, 2 * Math.PI, false);
-        this.canvasContext.fill();
-        this.canvasContext.stroke();
-    }
-};
-
-// заполняет фон лабиринта
-Maze.prototype.drawBackground = function () {
-    this.canvasContext.fillStyle = this.FILL_STYLE_BACKGROUND;
-    this.canvasContext.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-};
-
-// очищает изображение
-Maze.prototype.clearCanvas = function () {
-    this.canvasContext.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-};
+/**********************************************************************************/
+// выбор начальной и конечной точки лабиринта
 
 // записывает начальную точку маршрута
 Maze.prototype.setStartPoint = function (cellX, cellY) {
@@ -347,7 +384,7 @@ Maze.prototype.setEndPoint = function (cellX, cellY) {
 Maze.prototype.__startPointPick = function (clickHandler) {
     this.funPointPickHandler = clickHandler;
     var _this = this;
-    this.pointPickListener = function(event) {
+    this.pointPickListener = function (event) {
         _this.mouseClickListener(event, _this);
     };
     if (this.canvas.addEventListener) {
@@ -380,54 +417,53 @@ Maze.prototype.mouseClickListener = function (event, _this) {
     _this.__endPointPick();
 };
 
-// выбор точки старта маршрута
-Maze.prototype.pickStartPoint = function () {
-    this.__startPointPick(this.setStartPoint);
-};
-
-// выбор точки финиша
-Maze.prototype.pickEndPoint = function () {
-    this.__startPointPick(this.setEndPoint);
-};
-
-// преобразует текущее состояние лабиринта в строку для передачи на сервер
-Maze.prototype.getInfoToString = function () {
-    var sMazeInfo = "";
-    for (var cellX = 0; cellX < this.cellsX; cellX++) {
-        for (var cellY = 0; cellY < this.cellsY; cellY++) {
-            sMazeInfo += this.cells[cellX][cellY].getType();
-            if (cellY != this.cellsY - 1) {
-                sMazeInfo += ",";
-            }
-        }
-        if (cellX != this.cellsX - 1) {
-            sMazeInfo += ";";
-        }
-    }
-    return sMazeInfo;
-};
-
-// преобразует точку старта в строку для передачи на сервер
-Maze.prototype.getMazeStartToString = function () {
-    if (this.startCell && this.startCell.length > 0) {
-        return this.startCell.join(",");
-    } else {
-        return "";
-    }
-};
-
-// преобразует точку финиша в строку для передачи на сервер
-Maze.prototype.getMazeFinishToString = function () {
-    if (this.endCell && this.endCell.length > 0) {
-        return this.endCell.join(",");
-    } else {
-        return "";
-    }
-};
-
 // запись маршрута во внутреннее состояние
 Maze.prototype.setRoute = function (oRoute) {
     this.route = oRoute;
+};
+
+Maze.prototype.getRoute = function() {
+    return this.route;
+};
+
+/********************************************************************************************/
+// управление решением по клиент-серверному принципу
+
+Maze.prototype.setStatusChangeListener = function(funStatusChangeListener) {
+    this.statusChangeListener = funStatusChangeListener;
+};
+
+Maze.prototype.__invokeStatusChangeListener = function(statusMessage) {
+    if(this.statusChangeListener) {
+        this.statusChangeListener(statusMessage);
+    }
+};
+
+Maze.prototype.solve = function() {
+    this.startSolve();
+};
+
+/**
+ * инициализация эвристического алгоритма
+ */
+Maze.prototype.startSolve = function () {
+    var funHandler = this.requestHandler.bind(this);
+    request({
+        "action": "set_info",
+        "maze": this.cells,
+        "startCell": this.startCell,
+        "endCell": this.endCell
+    }, funHandler);
+};
+
+Maze.prototype.requestHandler = function (action, oResponse) {
+    switch (action) {
+        case "no_action":
+            alert("No action to handle");
+            break;
+    }
+    var status = oResponse.error ? oResponse.error : oResponse.message;
+    this.__invokeStatusChangeListener(status);
 };
 
 // класс ячейки лабиринта, нужен для упрощения работы с ячейками
@@ -457,3 +493,52 @@ Cell.prototype.setType = function (type) {
 Cell.prototype.getType = function () {
     return this.type;
 };
+
+// получает объект xmlHttpRequest в зависимости от браузера
+function getXmlHttp() {
+    var xmlhttp;
+    try {
+        xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+    } catch (e) {
+        try {
+            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+        } catch (E) {
+            xmlhttp = false;
+        }
+    }
+    if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
+        xmlhttp = new XMLHttpRequest();
+    }
+    return xmlhttp;
+}
+
+function request(oRequestParams, funResponseHandler) {
+    var action = oRequestParams.action || "no_action";
+
+    /** @type XMLHttpRequest */
+    var req = getXmlHttp();
+
+    var sRequest = "json=" + JSON.stringify(oRequestParams);
+    var oResponse = {};
+    req.onreadystatechange = function () {
+        if (req.readyState == 4) {
+            if (req.status == 200) {
+                oResponse = JSON.parse(req.responseText);
+            }
+            oResponse.status = req.status;
+            funResponseHandler(action, oResponse);
+        }
+
+    };
+    req.open('POST', '/solver_hevristic.php', true);
+    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    req.setRequestHeader("Content-length", sRequest.length);
+    req.setRequestHeader("Connection", "close");
+
+    try {
+        req.send(sRequest);
+    } catch (e) {
+        oResponse.error = "Не удалось отправить запрос на сервер (" + e.message + ")";
+        funResponseHandler(action, oResponse);
+    }
+}

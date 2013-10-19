@@ -10,27 +10,33 @@
     <div class="page-header">
         <h1>Поиск пути на произвольной местности</h1>
     </div>
-    <canvas id="mainCanvas" width="800" height="400"></canvas>
-    <div class="controls">
-        <div class="buttons-column1">
-            <div class="button button-light-green" onclick="maze.generate()">
-                <p><i class="refresh"></i><span>Создать новый лабиринт</span></p>
+    <div class="page-content">
+        <canvas id="mainCanvas" width="640" height="450"></canvas>
+        <div class="controls">
+            <div class="buttons-column1">
+                <div class="button button-green" onclick="clearStatus(); maze.generate()">
+                    <p><i class="refresh"></i><span>Создать новый лабиринт</span></p>
+                </div>
             </div>
-        </div>
-        <div class="buttons-column2">
-            <div class="button button-light-blue" onclick="maze.pickStartPoint()">
-                <p><i class="start"></i><span>Задать точку старта</span></p>
+            <div class="buttons-column2">
+                <div class="button button-light-blue" onclick="maze.pickStartPoint()">
+                    <p><i class="start"></i><span>Задать точку старта</span></p>
+                </div>
+                <div class="button button-light-blue" onclick="maze.pickEndPoint()">
+                    <p><i class="finish"></i><span>Задать точку финиша</span></p>
+                </div>
             </div>
-            <div class="button button-light-blue" onclick="maze.pickEndPoint()">
-                <p><i class="finish"></i><span>Задать точку финиша</span></p>
-            </div>
-        </div>
-        <div class="buttons-column3">
-            <div class="button button-blue"
-                 onclick="getRoute(maze.getInfoToString(), maze.getMazeStartToString(), maze.getMazeFinishToString())">
-                <p><i class="go" id="route-icon"></i><span>Проложить маршрут</span></p>
+            <div class="buttons-column3">
+                <div class="button button-blue"
+                     onclick="getRoute()">
+                    <p><i class="go" id="route-icon"></i><span>Проложить маршрут</span></p>
+                </div>
             </div>
             <div id="routeStatus"></div>
+        </div>
+        <div class="status">
+            <h3>Клиент-серверное взаимодействие:</h3>
+            <div id="routeStatusFull"></div>
         </div>
     </div>
 </div>
@@ -39,12 +45,14 @@
     var maze;
     // mazeCanvas - объект html5 canvas для рисования на нем лабиринта
     var mazeCanvas;
+    var fullStatusRowCount = 0;
 
     // выполняется после загрузки html-страницы в браузере
     window.onload = function () {
         mazeCanvas = document.getElementById("mainCanvas");
         // Maze - объект лабиринта, хранящий его состояние и выполняющий операции над ним
-        maze = new Maze(mazeCanvas, 80, 40);
+        maze = new Maze(mazeCanvas, 64, 45);
+        maze.setStatusChangeListener(setStatus);
     };
 
     // создает новый случайный лабиринт
@@ -55,111 +63,18 @@
     // очищает сообщение статуса соединения с сервером
     function clearStatus() {
         document.getElementById('routeStatus').innerHTML = "";
+        document.getElementById('routeStatusFull').innerHTML = "";
+        fullStatusRowCount = 0;
     }
 
-    // преобразует строку с маршрутом, полученную от сервера, в объект с данными маршрута,
-    // сообщением об успешности прокладки маршрута
-    function __parseRoute(sRoute) {
-        var oRoute = {};
-        if (sRoute) {
-            var arRouteVars = sRoute.split("&");
-            var arRoute = [];
-            for (var i in arRouteVars) {
-                var arRouteVar = arRouteVars[i].split("=");
-                arRoute[arRouteVar[0]] = arRouteVar[1];
-            }
-            if (arRoute["status"]) {
-                oRoute.status = arRoute["status"];
-            }
-            if (arRoute["message"]) {
-                oRoute.message = arRoute["message"];
-            }
-            if (arRoute["value"]) {
-                var arValuesStr = arRoute["value"].split(";");
-                var arValues = [];
-                for (var i in arValuesStr) {
-                    arValues.push(arValuesStr[i].split(","));
-                }
-                oRoute.value = arValues;
-            }
-        }
-        return oRoute;
+    function setStatus(status) {
+        document.getElementById('routeStatus').innerHTML = status;
+        document.getElementById('routeStatusFull').innerHTML = fullStatusRowCount++ + ": " + status + "<br/>" +
+                document.getElementById('routeStatusFull').innerHTML;
     }
 
-    // отправляет на сервер информацию о лабиринте,
-    // получает информацию о маршруте и рисует его
-    function getRoute(sMazeInfo, sStart, sFinish) {
-        var requestParam = "mazeInfo=" + sMazeInfo + "&start=" + sStart + "&finish=" + sFinish;
-        var req = getXmlHttp();
-        var statusImg = document.getElementById('route-icon');
-        var statusElem = document.getElementById('routeStatus');
-
-        req.onreadystatechange = function () {
-            if (req.readyState == 4) {
-                // если запрос закончил выполняться
-                statusImg.className = "";
-                statusElem.innerHTML = req.statusText; // показать статус (Not Found, ОК..)
-                setTimeout(function () {
-                    statusElem.innerHTML = "";
-                }, 3000);
-
-                if (req.status == 200) {
-                    // получаем маршрут
-                    var oRoute = __parseRoute(req.responseText);
-                    // проверяем статус ("успешно" или "ошибка")
-                    if (oRoute.status == 0) {
-                        statusImg.className = "ok";
-                        setTimeout(function () {
-                            statusImg.className = "go";
-                        }, 3000);
-                        statusElem.innerHTML = oRoute.message;
-                        // записываем маршрут в лабиринт
-                        maze.setRoute(oRoute.value);
-
-                        // рисуем маршрут на странице
-                        maze.drawRouteAnimated();
-                    } else {
-                        // показываем ошибку
-                        statusImg.className = "error";
-                        statusElem.innerHTML = oRoute.message;
-                    }
-                } else {
-                    statusImg.className = "error";
-                }
-            }
-
-        };
-        req.open('POST', '/solver_hevristic.php', true);
-        req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-        req.setRequestHeader("Content-length", requestParam.length);
-        req.setRequestHeader("Connection", "close");
-
-        try {
-            req.send(requestParam);
-            statusImg.className = "await";
-            statusElem.innerHTML = 'Ожидаю ответа сервера...';
-        } catch (e) {
-            // при ошибке запроса выводим сообщение
-            statusElem.innerHTML = "Не удалось запросить маршрут";
-        }
-    }
-
-    // получает объект xmlHttpRequest в зависимости от браузера
-    function getXmlHttp() {
-        var xmlhttp;
-        try {
-            xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
-        } catch (e) {
-            try {
-                xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-            } catch (E) {
-                xmlhttp = false;
-            }
-        }
-        if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
-            xmlhttp = new XMLHttpRequest();
-        }
-        return xmlhttp;
+    function getRoute() {
+        maze.solve();
     }
 </script>
 </body>
