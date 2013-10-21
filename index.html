@@ -68,13 +68,23 @@
     }
 
     function setStatus(status) {
-        document.getElementById('routeStatus').innerHTML = status;
-        document.getElementById('routeStatusFull').innerHTML = fullStatusRowCount++ + ": " + status + "<br/>" +
+        document.getElementById('routeStatus').innerHTML = escapeHTML(status);
+        document.getElementById('routeStatusFull').innerHTML = fullStatusRowCount++ + ": " + escapeHTML(status) + "<br/>" +
                 document.getElementById('routeStatusFull').innerHTML;
     }
 
     function getRoute() {
         maze.solve();
+    }
+
+    function escapeHTML(string) {
+        var escapeChars = [{search: "<", replace: "&lt;"}, {search: ">", replace: "&gt;"}];
+        for(var escapeCharIndex in escapeChars) {
+            while(string.indexOf(escapeChars[escapeCharIndex].search) > -1) {
+                string = string.replace(escapeChars[escapeCharIndex].search, escapeChars[escapeCharIndex].replace);
+            }
+        }
+        return string;
     }
 </script>
 </body>

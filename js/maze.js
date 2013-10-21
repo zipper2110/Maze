@@ -22,17 +22,14 @@ function Maze(canvasObject, cellsX, cellsY) {
 
     /** @type {Array<Array<Cell>>} */
     this.cells = [];
-    this.startCell = [];
-    this.endCell = [];
+    this.startCell = null;
+    this.endCell = null;
     this.FILL_STYLE_EMPTY_CELL = "#FFFF55";
     this.FILL_STYLE_BLOCK_CELL = "#44CCFF";
-
     this.FILL_STYLE_BACKGROUND = "#000000";
-
     this.FILL_STYLE_SELECTED_CELL = "#FF9999";
-
-    this.FILL_STYLE_FINISH_CELL = "#FF2222";
     this.FILL_STYLE_START_CELL = "#A0F";
+    this.FILL_STYLE_FINISH_CELL = "#FF2222";
 
     this.funPointPickHandler = null;
     this.pointPickListener = null;
@@ -61,11 +58,11 @@ Maze.prototype.clear = function () {
     for (var cellX = 0; cellX < this.cellsX; cellX++) {
         for (var cellY = 0; cellY < this.cellsY; cellY++) {
             if (!this.cells[cellX]) this.cells[cellX] = [];
-            this.cells[cellX][cellY] = new Cell();
+            this.cells[cellX][cellY] = new Cell(cellX, cellY);
         }
     }
-    this.startCell = [];
-    this.endCell = [];
+    this.startCell = null;
+    this.endCell = null;
     this.clearRoute();
     this.clearCanvas();
 };
@@ -169,9 +166,9 @@ Maze.prototype.drawBlock = function (cellX, cellY, cell) {
     this.canvasContext.fillStyle = fillStyle;
     this.canvasContext.fillRect(cellWidth * cellX, cellHeight * cellY, cellWidth * (cellX + 1), cellHeight * (cellY + 1));
     if (cell.isSelected()) {
-        if (this.startCell && this.startCell.length > 0 && this.startCell[0] == cellX && this.startCell[1] == cellY) {
+        if (this.startCell && this.startCell.X == cellX && this.startCell.Y == cellY) {
             fillStyle = this.FILL_STYLE_START_CELL;
-        } else if (this.endCell && this.endCell.length > 0 && this.endCell[0] == cellX && this.endCell[1] == cellY) {
+        } else if (this.endCell && this.endCell.X == cellX && this.endCell.Y == cellY) {
             fillStyle = this.FILL_STYLE_FINISH_CELL;
         } else {
             fillStyle = this.FILL_STYLE_SELECTED_CELL;
@@ -362,22 +359,22 @@ Maze.prototype.generateCellsRecursive = function (arGrowingCells) {
 
 // записывает начальную точку маршрута
 Maze.prototype.setStartPoint = function (cellX, cellY) {
-    if (this.startCell && this.startCell.length > 0) {
-        this.cells[this.startCell[0]][this.startCell[1]].setSelected(false);
+    if (this.startCell) {
+        this.startCell.setSelected(false);
     }
-    this.startCell = [cellX, cellY];
-    this.cells[cellX][cellY].setSelected(true);
+    this.startCell = this.cells[cellX][cellY];
+    this.startCell.setSelected(true);
     this.clearRoute();
     this.refresh();
 };
 
 // записывает конечную точку
 Maze.prototype.setEndPoint = function (cellX, cellY) {
-    if (this.endCell && this.endCell.length > 0) {
-        this.cells[this.endCell[0]][this.endCell[1]].setSelected(false);
+    if (this.endCell) {
+        this.endCell.setSelected(false);
     }
-    this.endCell = [cellX, cellY];
-    this.cells[cellX][cellY].setSelected(true);
+    this.endCell = this.cells[cellX][cellY];
+    this.endCell.setSelected(true);
     this.clearRoute();
     this.refresh();
 };
@@ -443,6 +440,7 @@ Maze.prototype.__invokeStatusChangeListener = function(statusMessage) {
 
 Maze.prototype.solve = function() {
     this.startSolve();
+    this.makeStep();
 };
 
 /**
@@ -458,22 +456,32 @@ Maze.prototype.startSolve = function () {
     }, funHandler);
 };
 
+Maze.prototype.makeStep = function() {
+    var funHandler = this.requestHandler.bind(this);
+    request({
+        "action": "get_step"
+    }, funHandler);
+};
+
 Maze.prototype.requestHandler = function (action, oResponse) {
     switch (action) {
         case "no_action":
             alert("No action to handle");
             break;
     }
-    var status = oResponse.error ? oResponse.error : oResponse.message;
+    var status = "Action " + action + ": ";
+    status += oResponse.error ? oResponse.error : oResponse.message;
     this.__invokeStatusChangeListener(status);
 };
 
 // класс ячейки лабиринта, нужен для упрощения работы с ячейками
 // содержит информацию о типе ячейки (стена или проходимая ячейка) и о том, выбрана ячейка или нет
-function Cell(type) {
+function Cell(cellX, cellY, type) {
     if (!type) type = 0;
     this.bSelected = false;
     this.type = type;
+    this.X = cellX;
+    this.Y = cellY;
 }
 
 // возможные типы ячейки
@@ -525,7 +533,11 @@ function request(oRequestParams, funResponseHandler) {
     req.onreadystatechange = function () {
         if (req.readyState == 4) {
             if (req.status == 200) {
-                oResponse = JSON.parse(req.responseText);
+                try {
+                    oResponse = JSON.parse(req.responseText);
+                } catch(e) {
+                    oResponse = {message: strip_tags(req.responseText)};
+                }
             }
             oResponse.status = req.status;
             funResponseHandler(action, oResponse);
@@ -543,4 +555,45 @@ function request(oRequestParams, funResponseHandler) {
         oResponse.error = "Не удалось отправить запрос на сервер (" + e.message + ")";
         funResponseHandler(action, oResponse);
     }
+}
+
+function strip_tags (input, allowed) {
+    // http://kevin.vanzonneveld.net
+    // +   original by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+    // +   improved by: Luke Godfrey
+    // +      input by: Pul
+    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+    // +   bugfixed by: Onno Marsman
+    // +      input by: Alex
+    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+    // +      input by: Marc Palau
+    // +   improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+    // +      input by: Brett Zamir (http://brett-zamir.me)
+    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+    // +   bugfixed by: Eric Nagel
+    // +      input by: Bobby Drake
+    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+    // +   bugfixed by: Tomasz Wesolowski
+    // +      input by: Evertjan Garretsen
+    // +    revised by: Rafał Kukawski (http://blog.kukawski.pl/)
+    // *     example 1: strip_tags('<p>Kevin</p> <br /><b>van</b> <i>Zonneveld</i>', '<i><b>');
+    // *     returns 1: 'Kevin <b>van</b> <i>Zonneveld</i>'
+    // *     example 2: strip_tags('<p>Kevin <img src="someimage.png" onmouseover="someFunction()">van <i>Zonneveld</i></p>', '<p>');
+    // *     returns 2: '<p>Kevin van Zonneveld</p>'
+    // *     example 3: strip_tags("<a href='http://kevin.vanzonneveld.net'>Kevin van Zonneveld</a>", "<a>");
+    // *     returns 3: '<a href='http://kevin.vanzonneveld.net'>Kevin van Zonneveld</a>'
+    // *     example 4: strip_tags('1 < 5 5 > 1');
+    // *     returns 4: '1 < 5 5 > 1'
+    // *     example 5: strip_tags('1 <br/> 1');
+    // *     returns 5: '1  1'
+    // *     example 6: strip_tags('1 <br/> 1', '<br>');
+    // *     returns 6: '1  1'
+    // *     example 7: strip_tags('1 <br/> 1', '<br><br/>');
+    // *     returns 7: '1 <br/> 1'
+    allowed = (((allowed || "") + "").toLowerCase().match(/<[a-z][a-z0-9]*>/g) || []).join(''); // making sure the allowed arg is a string containing only tags in lowercase (<a><b><c>)
+    var tags = /<\/?([a-z][a-z0-9]*)\b[^>]*>/gi,
+        commentsAndPhpTags = /<!--[\s\S]*?-->|<\?(?:php)?[\s\S]*?\?>/gi;
+    return input.replace(commentsAndPhpTags, '').replace(tags, function ($0, $1) {
+        return allowed.indexOf('<' + $1.toLowerCase() + '>') > -1 ? $0 : '';
+    });
 }
