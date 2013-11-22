@@ -176,16 +176,12 @@ function cell_is_ground($cellX, $cellY, $maze) {
 }
 
 function calculate_f($cell, $route_length, $finish_cell) {
-    return $route_length + 2 * pow((pow($finish_cell->X - $cell->X, 2) + pow($finish_cell->Y - $cell->Y, 2)), 0.5);
-    /*$X = $cell->X;
+    //return $route_length + 2 * pow((pow($finish_cell->X - $cell->X, 2) + pow($finish_cell->Y - $cell->Y, 2)), 0.5);
+    $X = $cell->X;
     $Y = $cell->Y;
     $finish_x = $finish_cell->X;
     $finish_y = $finish_cell->Y;
-    return `"C:/Program Files/swipl/bin/swipl.exe" -s C:/xampp2/htdocs/f.pl -g calculate_f($X,$Y,$route_length,$finish_x,$finish_y) -t halt`;*/
+    return `"C:/Program Files/swipl/bin/swipl.exe" -s C:/xampp2/htdocs/f.pl -g calculate_f($X,$Y,$route_length,$finish_x,$finish_y) -t halt`;
 }
 
 echo json_encode($response);
-
-
-//$test = `"C:/Program Files/swipl/bin/swipl.exe" -s d:/1.pl -g test -t halt`;
-//echo $test;
