@@ -40,6 +40,9 @@ function Maze(canvasObject, cellsX, cellsY) {
     this.statusChangeListener = null;
 
     this.generate();
+
+    /** @type Solver */
+    this.solver = null;
 }
 
 /**
@@ -48,7 +51,7 @@ function Maze(canvasObject, cellsX, cellsY) {
 Maze.prototype.generate = function () {
     this.clear();
     this.generateCells();
-    this.redraw();
+    this.refresh();
 };
 
 /**
@@ -138,14 +141,21 @@ Maze.prototype.drawRoute = function () {
 
 // рисует один сегмент маршрута между соседними ячейками
 Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
+    this.canvasContext.lineJoin = 'round';
+    this.canvasContext.lineWidth = 2;
+    this.canvasContext.strokeStyle = "#FF0000";
+    this.canvasContext.beginPath();
+
     var cellWidth = this.canvasWidth / this.cellsX;
     var cellHeight = this.canvasHeight / this.cellsY;
-    var xFrom = cellFrom[0] * cellWidth + cellWidth / 2;
-    var yFrom = cellFrom[1] * cellHeight + cellHeight / 2;
-    var xTo = cellTo[0] * cellWidth + cellWidth / 2;
-    var yTo = cellTo[1] * cellHeight + cellHeight / 2;
+    var xFrom = cellFrom.X * cellWidth + cellWidth / 2;
+    var yFrom = cellFrom.Y * cellHeight + cellHeight / 2;
+    var xTo = cellTo.X * cellWidth + cellWidth / 2;
+    var yTo = cellTo.Y * cellHeight + cellHeight / 2;
     this.canvasContext.moveTo(xFrom, yFrom);
     this.canvasContext.lineTo(xTo, yTo);
+    this.canvasContext.stroke();
+
     this.canvasContext.stroke();
 };
 
@@ -221,6 +231,7 @@ Maze.prototype.clearRoute = function () {
     this.route = "";
     this.animRoute = [];
     this.animRouteFrameBuffer = [];
+    this.redraw();
 };
 
 /**
@@ -439,39 +450,47 @@ Maze.prototype.__invokeStatusChangeListener = function(statusMessage) {
 };
 
 Maze.prototype.solve = function() {
-    this.startSolve();
-    this.makeStep();
-};
-
-/**
- * инициализация эвристического алгоритма
- */
-Maze.prototype.startSolve = function () {
-    var funHandler = this.requestHandler.bind(this);
-    request({
-        "action": "set_info",
-        "maze": this.cells,
-        "startCell": this.startCell,
-        "endCell": this.endCell
-    }, funHandler);
-};
-
-Maze.prototype.makeStep = function() {
-    var funHandler = this.requestHandler.bind(this);
-    request({
-        "action": "get_step"
-    }, funHandler);
-};
-
-Maze.prototype.requestHandler = function (action, oResponse) {
-    switch (action) {
-        case "no_action":
-            alert("No action to handle");
-            break;
+    try {
+        this.clearRoute();
+        this.solver = new Solver(this.cells, this.startCell, this.endCell);
+        var requestHandler = this.__requestHandler.bind(this);
+        this.solver.addResponseListener(requestHandler);
+        this.solver.nextStep();
+    } catch(e) {
+        alert(e.message);
     }
-    var status = "Action " + action + ": ";
-    status += oResponse.error ? oResponse.error : oResponse.message;
+};
+
+Maze.prototype.__requestHandler = function (oResponse) {
+    var status;
+    try {
+        var action = oResponse.action;
+        if(!action) alert("server returned response with no action specified");
+        switch (action) {
+            case "no_action":
+                alert("No action to handle");
+                break;
+            case "get_step":
+                // drows new step from route
+                if(oResponse.result == "has_next_step") {
+                    this.__addStep(oResponse.step_start, oResponse.step_end);
+                    this.solver.nextStep();
+                }
+                break;
+            default:
+
+                break;
+        }
+        status = "Action " + action + ": ";
+        status += oResponse.error ? oResponse.error : oResponse.message;
+    } catch(e) {
+        status = e.message;
+    }
     this.__invokeStatusChangeListener(status);
+};
+
+Maze.prototype.__addStep = function(stepStart, stepEnd) {
+    this.drawRouteLine(stepStart, stepEnd);
 };
 
 // класс ячейки лабиринта, нужен для упрощения работы с ячейками
@@ -503,97 +522,3 @@ Cell.prototype.setType = function (type) {
 Cell.prototype.getType = function () {
     return this.type;
 };
-
-// получает объект xmlHttpRequest в зависимости от браузера
-function getXmlHttp() {
-    var xmlhttp;
-    try {
-        xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
-    } catch (e) {
-        try {
-            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-        } catch (E) {
-            xmlhttp = false;
-        }
-    }
-    if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
-        xmlhttp = new XMLHttpRequest();
-    }
-    return xmlhttp;
-}
-
-function request(oRequestParams, funResponseHandler) {
-    var action = oRequestParams.action || "no_action";
-
-    /** @type XMLHttpRequest */
-    var req = getXmlHttp();
-
-    var sRequest = "json=" + JSON.stringify(oRequestParams);
-    var oResponse = {};
-    req.onreadystatechange = function () {
-        if (req.readyState == 4) {
-            if (req.status == 200) {
-                try {
-                    oResponse = JSON.parse(req.responseText);
-                } catch(e) {
-                    oResponse = {message: strip_tags(req.responseText)};
-                }
-            }
-            oResponse.status = req.status;
-            funResponseHandler(action, oResponse);
-        }
-
-    };
-    req.open('POST', '/solver_hevristic.php', true);
-    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    req.setRequestHeader("Content-length", sRequest.length);
-    req.setRequestHeader("Connection", "close");
-
-    try {
-        req.send(sRequest);
-    } catch (e) {
-        oResponse.error = "Не удалось отправить запрос на сервер (" + e.message + ")";
-        funResponseHandler(action, oResponse);
-    }
-}
-
-function strip_tags (input, allowed) {
-    // http://kevin.vanzonneveld.net
-    // +   original by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +   improved by: Luke Godfrey
-    // +      input by: Pul
-    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +   bugfixed by: Onno Marsman
-    // +      input by: Alex
-    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +      input by: Marc Palau
-    // +   improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +      input by: Brett Zamir (http://brett-zamir.me)
-    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +   bugfixed by: Eric Nagel
-    // +      input by: Bobby Drake
-    // +   bugfixed by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +   bugfixed by: Tomasz Wesolowski
-    // +      input by: Evertjan Garretsen
-    // +    revised by: Rafał Kukawski (http://blog.kukawski.pl/)
-    // *     example 1: strip_tags('<p>Kevin</p> <br /><b>van</b> <i>Zonneveld</i>', '<i><b>');
-    // *     returns 1: 'Kevin <b>van</b> <i>Zonneveld</i>'
-    // *     example 2: strip_tags('<p>Kevin <img src="someimage.png" onmouseover="someFunction()">van <i>Zonneveld</i></p>', '<p>');
-    // *     returns 2: '<p>Kevin van Zonneveld</p>'
-    // *     example 3: strip_tags("<a href='http://kevin.vanzonneveld.net'>Kevin van Zonneveld</a>", "<a>");
-    // *     returns 3: '<a href='http://kevin.vanzonneveld.net'>Kevin van Zonneveld</a>'
-    // *     example 4: strip_tags('1 < 5 5 > 1');
-    // *     returns 4: '1 < 5 5 > 1'
-    // *     example 5: strip_tags('1 <br/> 1');
-    // *     returns 5: '1  1'
-    // *     example 6: strip_tags('1 <br/> 1', '<br>');
-    // *     returns 6: '1  1'
-    // *     example 7: strip_tags('1 <br/> 1', '<br><br/>');
-    // *     returns 7: '1 <br/> 1'
-    allowed = (((allowed || "") + "").toLowerCase().match(/<[a-z][a-z0-9]*>/g) || []).join(''); // making sure the allowed arg is a string containing only tags in lowercase (<a><b><c>)
-    var tags = /<\/?([a-z][a-z0-9]*)\b[^>]*>/gi,
-        commentsAndPhpTags = /<!--[\s\S]*?-->|<\?(?:php)?[\s\S]*?\?>/gi;
-    return input.replace(commentsAndPhpTags, '').replace(tags, function ($0, $1) {
-        return allowed.indexOf('<' + $1.toLowerCase() + '>') > -1 ? $0 : '';
-    });
-}
