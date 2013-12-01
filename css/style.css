@@ -162,11 +162,11 @@ body {
 }
 
 .button i.start {
-    background-image: url(../img/start2.png);
+    background-image: url(../img/start.png);
 }
 
 .button i.finish {
-    background-image: url(../img/finish2.png);
+    background-image: url(../img/finish.png);
 }
 
 .button i.refresh {

@@ -142,7 +142,10 @@ Maze.prototype.__drawStartAndFinish = function () {
                 } else if (this.endCell && this.endCell.X == cellX && this.endCell.Y == cellY) {
                     img = this.finishFlagImage;
                 }
-                this.canvasContext.drawImage(img, cellWidth * cellX + cellWidth / 2 - img.width / 2, cellHeight * cellY + cellHeight / 2 - img.height / 2);
+                // bottom center
+//                this.canvasContext.drawImage(img, cellWidth * cellX + cellWidth / 2 - img.width / 2, cellHeight * cellY + cellHeight / 2 - img.height);
+                // mid center, fixed size
+                this.canvasContext.drawImage(img, cellWidth * cellX, cellHeight * cellY, cellWidth, cellHeight);
             }
         }
     }
