@@ -25,6 +25,8 @@ function Maze(canvasObject, cellsX, cellsY, wallTextureImg, pathTextureImg, star
     this.cellsY = cellsY;
     this.canvasWidth = canvasObject.width;
     this.canvasHeight = canvasObject.height;
+    this.cellWidth = this.canvasWidth / cellsX;
+    this.cellHeight = this.canvasHeight / cellsY;
 
     this.mode = MODE_DEFAULT;
 
@@ -42,8 +44,6 @@ function Maze(canvasObject, cellsX, cellsY, wallTextureImg, pathTextureImg, star
 
     this.funPointPickHandler = null;
     this.pointPickListener = null;
-    this.route = '';
-    this.animRoute = [];
 
     this.statusChangeListener = null;
     this.modeChangeListener = null;
@@ -75,7 +75,6 @@ Maze.prototype.clear = function () {
     }
     this.startCell = null;
     this.endCell = null;
-    this.clearRoute();
     this.clearCanvas();
 };
 
@@ -129,6 +128,10 @@ Maze.prototype.draw = function () {
     this.__drawStartAndFinish();
 };
 
+/**
+ * Метод рисует точки старта и финиша, следует вызывать его последним, чтобы старт и финиш рисовались поверх всего
+ * @private
+ */
 Maze.prototype.__drawStartAndFinish = function () {
     var cellWidth = this.canvasWidth / this.cellsX;
     var cellHeight = this.canvasHeight / this.cellsY;
@@ -154,16 +157,14 @@ Maze.prototype.__drawStartAndFinish = function () {
 // рисует один сегмент маршрута между соседними ячейками
 Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
     this.canvasContext.lineCap = 'round';
-    this.canvasContext.lineWidth = 3;
+    this.canvasContext.lineWidth = 6;
     this.canvasContext.strokeStyle = "#2244cc";
     this.canvasContext.beginPath();
 
-    var cellWidth = this.canvasWidth / this.cellsX;
-    var cellHeight = this.canvasHeight / this.cellsY;
-    var xFrom = cellFrom.X * cellWidth + cellWidth / 2;
-    var yFrom = cellFrom.Y * cellHeight + cellHeight / 2;
-    var xTo = cellTo.X * cellWidth + cellWidth / 2;
-    var yTo = cellTo.Y * cellHeight + cellHeight / 2;
+    var xFrom = cellFrom.X * this.cellWidth + this.cellWidth / 2;
+    var yFrom = cellFrom.Y * this.cellHeight + this.cellHeight / 2;
+    var xTo = cellTo.X * this.cellWidth + this.cellWidth / 2;
+    var yTo = cellTo.Y * this.cellHeight + this.cellHeight / 2;
     this.canvasContext.moveTo(xFrom, yFrom);
     this.canvasContext.lineTo(xTo, yTo);
     this.canvasContext.stroke();
@@ -171,8 +172,6 @@ Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
 
 // рисует одну ячейку лабиринта
 Maze.prototype.drawBlock = function (cellX, cellY, cell) {
-    var cellWidth = this.canvasWidth / this.cellsX;
-    var cellHeight = this.canvasHeight / this.cellsY;
     var fillStyle = null;
     var blockType = cell.getType();
     switch (blockType) {
@@ -184,20 +183,14 @@ Maze.prototype.drawBlock = function (cellX, cellY, cell) {
             break;
     }
     this.canvasContext.fillStyle = fillStyle;
-    this.canvasContext.fillRect(cellWidth * cellX, cellHeight * cellY, cellWidth * (cellX + 1), cellHeight * (cellY + 1));
+    this.canvasContext.fillRect(
+        this.cellWidth * cellX,
+        this.cellHeight * cellY,
+        this.cellWidth * (cellX + 1),
+        this.cellHeight * (cellY + 1));
 };
 /***********************************************************/
 // управление состоянием объекта
-
-/**
- * очищает маршрут
- */
-Maze.prototype.clearRoute = function () {
-    this.route = "";
-    this.animRoute = [];
-    this.animRouteFrameBuffer = [];
-    this.redraw();
-};
 
 /**
  * генерирует значение в ячейках лабиринта
@@ -340,7 +333,6 @@ Maze.prototype.setStartPoint = function (cellX, cellY) {
     }
     this.startCell = this.cells[cellX][cellY];
     this.startCell.setSelected(true);
-    this.clearRoute();
     this.refresh();
     this.__setMode(MODE_DEFAULT);
 };
@@ -352,7 +344,6 @@ Maze.prototype.setEndPoint = function (cellX, cellY) {
     }
     this.endCell = this.cells[cellX][cellY];
     this.endCell.setSelected(true);
-    this.clearRoute();
     this.refresh();
     this.__setMode(MODE_DEFAULT);
 };
@@ -402,15 +393,6 @@ Maze.prototype.setCellType = function (cellX, cellY, type) {
 
 /********************************************************************************************/
 
-// запись маршрута во внутреннее состояние
-Maze.prototype.setRoute = function (oRoute) {
-    this.route = oRoute;
-};
-
-Maze.prototype.getRoute = function () {
-    return this.route;
-};
-
 Maze.prototype.__setMode = function (mode) {
     this.mode = mode;
     this.__invokeModeChangeListener(mode);
@@ -438,7 +420,6 @@ Maze.prototype.__invokeModeChangeListener = function (modeName) {
 
 Maze.prototype.solve = function () {
     try {
-        this.clearRoute();
         this.solver = new Solver(this.cells, this.startCell, this.endCell);
         var requestHandler = this.__requestHandler.bind(this);
         this.solver.addResponseListener(requestHandler);
