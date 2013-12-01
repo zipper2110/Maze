@@ -125,6 +125,17 @@ body {
     background: linear-gradient(to bottom, #92cc55 0%, #168310 100%); /* W3C */
 }
 
+.button-grey {
+    background: #FFA83D; /* Old browsers */
+    background: -moz-linear-gradient(top, #BBBBBB 0%, #666666 100%); /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #BBBBBB), color-stop(100%, #666666)); /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top, #BBBBBB 0%, #666666 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top, #BBBBBB 0%, #666666 100%); /* Opera 11.10+ */
+    background: -ms-linear-gradient(top, #BBBBBB 0%, #666666 100%); /* IE10+ */
+    background: linear-gradient(to bottom, #BBBBBB 0%, #666666 100%); /* W3C */
+    background: linear-gradient(to bottom, #BBBBBB 0%, #666666 100%); /* W3C */
+}
+
 /* button icons */
 .button i {
     display: inline-block;
@@ -163,5 +174,17 @@ body {
 }
 
 .button i.await {
-     background-image: url(../img/loading2.png);
- }
+    background-image: url(../img/loading2.png);
+}
+
+.button i.path {
+    /*background-image: url(../img/path.png);*/
+    background-image: url(../img/textures/path.png);
+    opacity: 1;
+}
+
+.button i.wall {
+    /*background-image: url(../img/wall.png);*/
+    background-image: url(../img/textures/wall.png);
+    opacity: 1;
+}

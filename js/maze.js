@@ -5,13 +5,19 @@ window.requestAnimFrame = (function (callback) {
     };
 })();
 
+var MODE_DEFAULT = "Обычный";
+var MODE_PICK_START_POINT = "Выбор начальной точки";
+var MODE_PICK_END_POINT = "Выбор конечной точки";
+var MODE_DRAW_WALL = "Рисование стены";
+var MODE_DRAW_PATH = "Рисование прохода";
+
 /*
  Функция "Maze" создает javascript-прототип (или, иначе говоря, класс) объекта лабиринта. Этому прототипу назначаются
  свои функции (иначе говоря, методы класса).
  */
 
 // функция-конструктор объекта лабиринта
-function Maze(canvasObject, cellsX, cellsY) {
+function Maze(canvasObject, cellsX, cellsY, wallTextureImg, pathTextureImg, startFlagImg, finishFlagImg) {
     /** @type {HTMLElement} */
     this.canvas = canvasObject;
     this.canvasContext = this.canvas.getContext("2d");
@@ -20,24 +26,27 @@ function Maze(canvasObject, cellsX, cellsY) {
     this.canvasWidth = canvasObject.width;
     this.canvasHeight = canvasObject.height;
 
+    this.mode = MODE_DEFAULT;
+
     /** @type {Array<Array<Cell>>} */
     this.cells = [];
     this.startCell = null;
     this.endCell = null;
-    this.FILL_STYLE_EMPTY_CELL = "#FFFF55";
-    this.FILL_STYLE_BLOCK_CELL = "#44CCFF";
+
+    this.FILL_STYLE_EMPTY_CELL = this.canvasContext.createPattern(pathTextureImg, 'repeat');
+    this.FILL_STYLE_BLOCK_CELL = this.canvasContext.createPattern(wallTextureImg, 'repeat');
     this.FILL_STYLE_BACKGROUND = "#000000";
-    this.FILL_STYLE_SELECTED_CELL = "#FF9999";
-    this.FILL_STYLE_START_CELL = "#A0F";
-    this.FILL_STYLE_FINISH_CELL = "#FF2222";
+
+    this.startFlagImage = startFlagImg;
+    this.finishFlagImage = finishFlagImg;
 
     this.funPointPickHandler = null;
     this.pointPickListener = null;
     this.route = '';
     this.animRoute = [];
-    this.animRouteFrameBuffer = [];
 
     this.statusChangeListener = null;
+    this.modeChangeListener = null;
 
     this.generate();
 
@@ -80,12 +89,12 @@ Maze.prototype.refresh = function () {
 
 // выбор точки старта маршрута
 Maze.prototype.pickStartPoint = function () {
-    this.__startPointPick(this.setStartPoint);
+    this.__startPointPick(this.setStartPoint, MODE_PICK_START_POINT);
 };
 
 // выбор точки финиша
 Maze.prototype.pickEndPoint = function () {
-    this.__startPointPick(this.setEndPoint);
+    this.__startPointPick(this.setEndPoint, MODE_PICK_END_POINT);
 };
 
 /**********************************************************/
@@ -97,7 +106,6 @@ Maze.prototype.pickEndPoint = function () {
 Maze.prototype.redraw = function () {
     this.drawBackground();
     this.draw();
-    this.drawRoute();
 };
 
 // заполняет фон лабиринта
@@ -118,32 +126,33 @@ Maze.prototype.draw = function () {
             this.drawBlock(cellX, cellY, this.cells[cellX][cellY]);
         }
     }
+    this.__drawStartAndFinish();
 };
 
-// рисует маршрут без анимации
-Maze.prototype.drawRoute = function () {
-    if (this.animRoute && this.animRoute.length > 0) {
-        this.canvasContext.lineJoin = 'round';
-        this.canvasContext.lineWidth = 2;
-        this.canvasContext.strokeStyle = "#FF0000";
-        this.canvasContext.beginPath();
-        var _this = this;
-        for (var i in this.animRoute) {
-            if (i < this.animRoute.length - 1) {
-                var cellFrom = this.animRoute[i];
-                var cellTo = this.animRoute[parseInt(i) + 1];
-                this.drawRouteLine([cellFrom[0], cellFrom[1]], [cellTo[0], cellTo[1]]);
+Maze.prototype.__drawStartAndFinish = function () {
+    var cellWidth = this.canvasWidth / this.cellsX;
+    var cellHeight = this.canvasHeight / this.cellsY;
+    for (var cellX = 0; cellX < this.cellsX; cellX++) {
+        for (var cellY = 0; cellY < this.cellsY; cellY++) {
+            var cell = this.cells[cellX][cellY];
+            if (cell.isSelected()) {
+                var img = null;
+                if (this.startCell && this.startCell.X == cellX && this.startCell.Y == cellY) {
+                    img = this.startFlagImage;
+                } else if (this.endCell && this.endCell.X == cellX && this.endCell.Y == cellY) {
+                    img = this.finishFlagImage;
+                }
+                this.canvasContext.drawImage(img, cellWidth * cellX + cellWidth / 2 - img.width / 2, cellHeight * cellY + cellHeight / 2 - img.height / 2);
             }
         }
-        this.canvasContext.stroke();
     }
 };
 
 // рисует один сегмент маршрута между соседними ячейками
 Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
-    this.canvasContext.lineJoin = 'round';
-    this.canvasContext.lineWidth = 2;
-    this.canvasContext.strokeStyle = "#FF0000";
+    this.canvasContext.lineCap = 'round';
+    this.canvasContext.lineWidth = 3;
+    this.canvasContext.strokeStyle = "#2244cc";
     this.canvasContext.beginPath();
 
     var cellWidth = this.canvasWidth / this.cellsX;
@@ -154,8 +163,6 @@ Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
     var yTo = cellTo.Y * cellHeight + cellHeight / 2;
     this.canvasContext.moveTo(xFrom, yFrom);
     this.canvasContext.lineTo(xTo, yTo);
-    this.canvasContext.stroke();
-
     this.canvasContext.stroke();
 };
 
@@ -175,52 +182,7 @@ Maze.prototype.drawBlock = function (cellX, cellY, cell) {
     }
     this.canvasContext.fillStyle = fillStyle;
     this.canvasContext.fillRect(cellWidth * cellX, cellHeight * cellY, cellWidth * (cellX + 1), cellHeight * (cellY + 1));
-    if (cell.isSelected()) {
-        if (this.startCell && this.startCell.X == cellX && this.startCell.Y == cellY) {
-            fillStyle = this.FILL_STYLE_START_CELL;
-        } else if (this.endCell && this.endCell.X == cellX && this.endCell.Y == cellY) {
-            fillStyle = this.FILL_STYLE_FINISH_CELL;
-        } else {
-            fillStyle = this.FILL_STYLE_SELECTED_CELL;
-        }
-        this.canvasContext.fillStyle = fillStyle;
-        this.canvasContext.beginPath();
-        this.canvasContext.strokeStyle = "rgba(0, 0, 0, 0)";
-        this.canvasContext.arc(cellWidth * cellX + cellWidth / 2, cellHeight * cellY + cellHeight / 2, Math.min(cellWidth, cellHeight) / 2, 0, 2 * Math.PI, false);
-        this.canvasContext.fill();
-        this.canvasContext.stroke();
-    }
 };
-
-/**
- * анимированно рисует маршрут
- */
-Maze.prototype.drawRouteAnimated = function () {
-    if (this.route && this.route.length > 0) {
-        this.animRouteFrameBuffer = this.route;
-        this.animate();
-    }
-
-};
-
-/**
- * рекурсивная функция, рисует маршрут по сегментам последовательно
- */
-Maze.prototype.animate = function () {
-    // update
-    this.animRoute.push(this.animRouteFrameBuffer.splice(0, 1)[0]);
-    // clear
-
-    // draw stuff
-    this.drawRoute();
-    // request new frame
-    if (this.animRouteFrameBuffer.length > 0) {
-        requestAnimFrame(function () {
-            maze.animate();
-        });
-    }
-};
-
 /***********************************************************/
 // управление состоянием объекта
 
@@ -377,6 +339,7 @@ Maze.prototype.setStartPoint = function (cellX, cellY) {
     this.startCell.setSelected(true);
     this.clearRoute();
     this.refresh();
+    this.__setMode(MODE_DEFAULT);
 };
 
 // записывает конечную точку
@@ -388,10 +351,11 @@ Maze.prototype.setEndPoint = function (cellX, cellY) {
     this.endCell.setSelected(true);
     this.clearRoute();
     this.refresh();
+    this.__setMode(MODE_DEFAULT);
 };
 
 // активирует выбор точки маршрута
-Maze.prototype.__startPointPick = function (clickHandler) {
+Maze.prototype.__startPointPick = function (clickHandler, mode) {
     this.funPointPickHandler = clickHandler;
     var _this = this;
     this.pointPickListener = function (event) {
@@ -402,6 +366,7 @@ Maze.prototype.__startPointPick = function (clickHandler) {
     } else {
         this.canvas.attachEvent('onclick', this.pointPickListener);
     }
+    this.__setMode(mode);
 };
 
 // деактивирует выбор точки маршрута
@@ -426,37 +391,56 @@ Maze.prototype.mouseClickListener = function (event, _this) {
     }
     _this.__endPointPick();
 };
+/********************************************************************************************/
+Maze.prototype.setCellType = function (cellX, cellY, type) {
+    // TODO: set type of cell to specified type
+};
+
+
+/********************************************************************************************/
 
 // запись маршрута во внутреннее состояние
 Maze.prototype.setRoute = function (oRoute) {
     this.route = oRoute;
 };
 
-Maze.prototype.getRoute = function() {
+Maze.prototype.getRoute = function () {
     return this.route;
 };
 
-/********************************************************************************************/
-// управление решением по клиент-серверному принципу
+Maze.prototype.__setMode = function (mode) {
+    this.mode = mode;
+    this.__invokeModeChangeListener(mode);
+};
 
-Maze.prototype.setStatusChangeListener = function(funStatusChangeListener) {
+Maze.prototype.setStatusChangeListener = function (funStatusChangeListener) {
     this.statusChangeListener = funStatusChangeListener;
 };
 
-Maze.prototype.__invokeStatusChangeListener = function(statusMessage) {
-    if(this.statusChangeListener) {
+Maze.prototype.setModeChangeListener = function (funModeChangeListener) {
+    this.modeChangeListener = funModeChangeListener;
+};
+
+Maze.prototype.__invokeStatusChangeListener = function (statusMessage) {
+    if (this.statusChangeListener) {
         this.statusChangeListener(statusMessage);
     }
 };
 
-Maze.prototype.solve = function() {
+Maze.prototype.__invokeModeChangeListener = function (modeName) {
+    if (this.modeChangeListener) {
+        this.modeChangeListener(modeName);
+    }
+};
+
+Maze.prototype.solve = function () {
     try {
         this.clearRoute();
         this.solver = new Solver(this.cells, this.startCell, this.endCell);
         var requestHandler = this.__requestHandler.bind(this);
         this.solver.addResponseListener(requestHandler);
         this.solver.nextStep();
-    } catch(e) {
+    } catch (e) {
         alert(e.message);
     }
 };
@@ -465,14 +449,14 @@ Maze.prototype.__requestHandler = function (oResponse) {
     var status;
     try {
         var action = oResponse.action;
-        if(!action) alert("server returned response with no action specified");
+        if (!action) alert("server returned response with no action specified");
         switch (action) {
             case "no_action":
                 alert("No action to handle");
                 break;
             case "get_step":
                 // drows new step from route
-                if(oResponse.result == "has_next_step") {
+                if (oResponse.result == "has_next_step") {
                     this.__addStep(oResponse.step_start, oResponse.step_end);
                     this.solver.nextStep();
                 }
@@ -483,14 +467,15 @@ Maze.prototype.__requestHandler = function (oResponse) {
         }
         status = "Action " + action + ": ";
         status += oResponse.error ? oResponse.error : oResponse.message;
-    } catch(e) {
+    } catch (e) {
         status = e.message;
     }
     this.__invokeStatusChangeListener(status);
 };
 
-Maze.prototype.__addStep = function(stepStart, stepEnd) {
+Maze.prototype.__addStep = function (stepStart, stepEnd) {
     this.drawRouteLine(stepStart, stepEnd);
+    this.__drawStartAndFinish();
 };
 
 // класс ячейки лабиринта, нужен для упрощения работы с ячейками

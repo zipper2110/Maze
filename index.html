@@ -1,68 +1,82 @@
-<html>
+<html >
 <head>
     <title>LAB</title>
+    <meta charset="utf-8">
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/style.css">
     <script type="text/javascript" src="js/maze.js"></script>
     <script type="text/javascript" src="js/solver.js"></script>
-    <script type="text/javascript" src="js/Syncronizer.js"></script>
+    <script type="text/javascript" src="js/syncronizer.js"></script>
 </head>
 <body>
 <div class="body-wrapper">
     <div class="page-header">
-        <h1>Поиск пути на произвольной местности</h1>
+        <h1>РџРѕРёСЃРє РїСѓС‚Рё РЅР° РїСЂРѕРёР·РІРѕР»СЊРЅРѕР№ РјРµСЃС‚РЅРѕСЃС‚Рё</h1>
     </div>
     <div class="page-content">
-        <canvas id="mainCanvas" width="640" height="450"></canvas>
+        <canvas id="mainCanvas" width="630" height="450"></canvas>
         <div class="controls">
-            <div class="buttons-column1">
-                <div class="button button-green" onclick="clearStatus(); maze.generate()">
-                    <p><i class="refresh"></i><span>Создать новый лабиринт</span></p>
-                </div>
+            <div class="button button-grey" onclick="">
+                <p><i class="path"></i><span>Р РёСЃРѕРІР°С‚СЊ РїСЂРѕС…РѕРґ</span></p>
             </div>
-            <div class="buttons-column2">
-                <div class="button button-light-blue" onclick="maze.pickStartPoint()">
-                    <p><i class="start"></i><span>Задать точку старта</span></p>
-                </div>
-                <div class="button button-light-blue" onclick="maze.pickEndPoint()">
-                    <p><i class="finish"></i><span>Задать точку финиша</span></p>
-                </div>
+            <div class="button button-grey" onclick="">
+                <p><i class="wall"></i><span>Р РёСЃРѕРІР°С‚СЊ СЃС‚РµРЅСѓ</span></p>
             </div>
-            <div class="buttons-column3">
-                <div class="button button-blue"
-                     onclick="getRoute()">
-                    <p><i class="go" id="route-icon"></i><span>Проложить маршрут</span></p>
-                </div>
+            <div class="maze-cursor-mode">
+                <p>РўРµРєСѓС‰РёР№ СЂРµР¶РёРј: <span id="mazeCursorMode">"Р РµР¶РёРј"</span></p>
+            </div>
+            <div class="button button-green" onclick="clearStatus(); maze.generate()">
+                <p><i class="refresh"></i><span>РЎРѕР·РґР°С‚СЊ РЅРѕРІС‹Р№ Р»Р°Р±РёСЂРёРЅС‚</span></p>
+            </div>
+            <div class="button button-light-blue" onclick="maze.pickStartPoint()">
+                <p><i class="start"></i><span>Р—Р°РґР°С‚СЊ С‚РѕС‡РєСѓ СЃС‚Р°СЂС‚Р°</span></p>
+            </div>
+            <div class="button button-light-blue" onclick="maze.pickEndPoint()">
+                <p><i class="finish"></i><span>Р—Р°РґР°С‚СЊ С‚РѕС‡РєСѓ С„РёРЅРёС€Р°</span></p>
+            </div>
+            <div class="button button-blue"
+                 onclick="getRoute()">
+                <p><i class="go" id="route-icon"></i><span>РџСЂРѕР»РѕР¶РёС‚СЊ РјР°СЂС€СЂСѓС‚</span></p>
             </div>
             <div id="routeStatus"></div>
         </div>
         <div class="status">
-            <h3>Клиент-серверное взаимодействие:</h3>
+            <h3>РљР»РёРµРЅС‚-СЃРµСЂРІРµСЂРЅРѕРµ РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёРµ:</h3>
+
             <div id="routeStatusFull"></div>
         </div>
     </div>
 </div>
+<img id="wallTexture" src="/img/textures/wall.png" style="display: none">
+<img id="pathTexture" src="/img/textures/path.png" style="display: none">
+<img id="startFlagImg" src="/img/textures/start_flag.png" style="display: none">
+<img id="finishFlagImg" src="/img/textures/finish_flag.png" style="display: none">
 <script type="text/javascript">
     /** @type {Maze} */
     var maze;
-    // mazeCanvas - объект html5 canvas для рисования на нем лабиринта
+    // mazeCanvas - РѕР±СЉРµРєС‚ html5 canvas РґР»СЏ СЂРёСЃРѕРІР°РЅРёСЏ РЅР° РЅРµРј Р»Р°Р±РёСЂРёРЅС‚Р°
     var mazeCanvas;
     var fullStatusRowCount = 0;
 
-    // выполняется после загрузки html-страницы в браузере
+    // РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ РїРѕСЃР»Рµ Р·Р°РіСЂСѓР·РєРё html-СЃС‚СЂР°РЅРёС†С‹ РІ Р±СЂР°СѓР·РµСЂРµ
     window.onload = function () {
         mazeCanvas = document.getElementById("mainCanvas");
-        // Maze - объект лабиринта, хранящий его состояние и выполняющий операции над ним
-        maze = new Maze(mazeCanvas, 64, 45);
+        // Maze - РѕР±СЉРµРєС‚ Р»Р°Р±РёСЂРёРЅС‚Р°, С…СЂР°РЅСЏС‰РёР№ РµРіРѕ СЃРѕСЃС‚РѕСЏРЅРёРµ Рё РІС‹РїРѕР»РЅСЏСЋС‰РёР№ РѕРїРµСЂР°С†РёРё РЅР°Рґ РЅРёРј
+        maze = new Maze(mazeCanvas, 42, 30,
+                document.getElementById('wallTexture'),
+                document.getElementById('pathTexture'),
+                document.getElementById('startFlagImg'),
+                document.getElementById('finishFlagImg'));
         maze.setStatusChangeListener(setStatus);
+        maze.setModeChangeListener(setMode);
     };
 
-    // создает новый случайный лабиринт
+    // СЃРѕР·РґР°РµС‚ РЅРѕРІС‹Р№ СЃР»СѓС‡Р°Р№РЅС‹Р№ Р»Р°Р±РёСЂРёРЅС‚
     function generateMaze() {
         maze.generate();
     }
 
-    // очищает сообщение статуса соединения с сервером
+    // РѕС‡РёС‰Р°РµС‚ СЃРѕРѕР±С‰РµРЅРёРµ СЃС‚Р°С‚СѓСЃР° СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ СЃРµСЂРІРµСЂРѕРј
     function clearStatus() {
         document.getElementById('routeStatus').innerHTML = "";
         document.getElementById('routeStatusFull').innerHTML = "";
@@ -75,14 +89,21 @@
                 document.getElementById('routeStatusFull').innerHTML;
     }
 
+    function setMode(mode) {
+        document.getElementById('mazeCursorMode').innerHTML = escapeHTML(mode);
+    }
+
     function getRoute() {
         maze.solve();
     }
 
     function escapeHTML(string) {
-        var escapeChars = [{search: "<", replace: "&lt;"}, {search: ">", replace: "&gt;"}];
-        for(var escapeCharIndex in escapeChars) {
-            while(string.indexOf(escapeChars[escapeCharIndex].search) > -1) {
+        var escapeChars = [
+            {search: "<", replace: "&lt;"},
+            {search: ">", replace: "&gt;"}
+        ];
+        for (var escapeCharIndex in escapeChars) {
+            while (string.indexOf(escapeChars[escapeCharIndex].search) > -1) {
                 string = string.replace(escapeChars[escapeCharIndex].search, escapeChars[escapeCharIndex].replace);
             }
         }
