@@ -5,6 +5,7 @@
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/style.css">
     <script type="text/javascript" src="js/maze.js"></script>
+    <script type="text/javascript" src="js/mazeUtils.js"></script>
     <script type="text/javascript" src="js/solver.js"></script>
     <script type="text/javascript" src="js/syncronizer.js"></script>
 </head>
@@ -23,7 +24,8 @@
                 <p><i class="wall"></i><span>Рисовать стену</span></p>
             </div>
             <div class="maze-cursor-mode">
-                <p>Текущий режим: <span id="mazeCursorMode">"Режим"</span></p>
+                <p>Текущее действие курсора: </p>
+                <p id="mazeCursorMode">обычный</p>
             </div>
             <div class="button button-green" onclick="clearStatus(); maze.generate()">
                 <p><i class="refresh"></i><span>Создать новый лабиринт</span></p>
@@ -72,11 +74,6 @@
         maze.setModeChangeListener(setMode);
     };
 
-    // создает новый случайный лабиринт
-    function generateMaze() {
-        maze.generate();
-    }
-
     // очищает сообщение статуса соединения с сервером
     function clearStatus() {
         document.getElementById('routeStatus').innerHTML = "";
@@ -95,6 +92,7 @@
     }
 
     function getRoute() {
+        clearStatus();
         maze.solve();
     }
 

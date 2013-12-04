@@ -5,11 +5,11 @@ window.requestAnimFrame = (function (callback) {
     };
 })();
 
-var MODE_DEFAULT = "Обычный";
-var MODE_PICK_START_POINT = "Выбор начальной точки";
-var MODE_PICK_END_POINT = "Выбор конечной точки";
-var MODE_DRAW_WALL = "Рисование стены";
-var MODE_DRAW_PATH = "Рисование прохода";
+var MODE_DEFAULT = "обычный";
+var MODE_PICK_START_POINT = "выбор начальной точки";
+var MODE_PICK_END_POINT = "выбор конечной точки";
+var MODE_DRAW_WALL = "рисование стены";
+var MODE_DRAW_PATH = "рисование прохода";
 
 /*
  Функция "Maze" создает javascript-прототип (или, иначе говоря, класс) объекта лабиринта. Этому прототипу назначаются
@@ -32,7 +32,9 @@ function Maze(canvasObject, cellsX, cellsY, wallTextureImg, pathTextureImg, star
 
     /** @type {Array<Array<Cell>>} */
     this.cells = [];
+    /** @type {Cell} */
     this.startCell = null;
+    /** @type {Cell} */
     this.endCell = null;
 
     this.FILL_STYLE_EMPTY_CELL = this.canvasContext.createPattern(pathTextureImg, 'repeat');
@@ -67,22 +69,19 @@ Maze.prototype.generate = function () {
  * стирает лабиринт
  */
 Maze.prototype.clear = function () {
-    for (var cellX = 0; cellX < this.cellsX; cellX++) {
-        for (var cellY = 0; cellY < this.cellsY; cellY++) {
-            if (!this.cells[cellX]) this.cells[cellX] = [];
-            this.cells[cellX][cellY] = new Cell(cellX, cellY);
-        }
-    }
     this.startCell = null;
     this.endCell = null;
-    this.clearCanvas();
 };
+
+Maze.prototype.generateCells = function() {
+    var funGenerationStepListener = this.redraw.bind(this);
+    this.cells = __generateMaze(this.cellsX, this.cellsY, funGenerationStepListener);
+}
 
 /**
  * перерисовывает лабиринт заново
  */
 Maze.prototype.refresh = function () {
-    this.clearCanvas();
     this.redraw();
 };
 
@@ -103,29 +102,37 @@ Maze.prototype.pickEndPoint = function () {
  * рисует лабиринт
  */
 Maze.prototype.redraw = function () {
-    this.drawBackground();
     this.draw();
-};
-
-// заполняет фон лабиринта
-Maze.prototype.drawBackground = function () {
-    this.canvasContext.fillStyle = this.FILL_STYLE_BACKGROUND;
-    this.canvasContext.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-};
-
-// очищает изображение
-Maze.prototype.clearCanvas = function () {
-    this.canvasContext.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 };
 
 // отрисовывет ячейки лабиринта
 Maze.prototype.draw = function () {
     for (var cellX = 0; cellX < this.cellsX; cellX++) {
         for (var cellY = 0; cellY < this.cellsY; cellY++) {
-            this.drawBlock(cellX, cellY, this.cells[cellX][cellY]);
+            this.drawBlock(this.cells[cellX][cellY]);
         }
     }
     this.__drawStartAndFinish();
+};
+
+// рисует одну ячейку лабиринта
+Maze.prototype.drawBlock = function (cell) {
+    var fillStyle = null;
+    var blockType = cell.getType();
+    switch (blockType) {
+        case Cell.TYPE_WALL:
+            fillStyle = this.FILL_STYLE_BLOCK_CELL;
+            break;
+        default:
+            fillStyle = this.FILL_STYLE_EMPTY_CELL;
+            break;
+    }
+    this.canvasContext.fillStyle = fillStyle;
+    this.canvasContext.fillRect(
+        this.cellWidth * cell.X,
+        this.cellHeight * cell.Y,
+        this.cellWidth * (cell.X + 1),
+        this.cellHeight * (cell.Y + 1));
 };
 
 /**
@@ -133,24 +140,11 @@ Maze.prototype.draw = function () {
  * @private
  */
 Maze.prototype.__drawStartAndFinish = function () {
-    var cellWidth = this.canvasWidth / this.cellsX;
-    var cellHeight = this.canvasHeight / this.cellsY;
-    for (var cellX = 0; cellX < this.cellsX; cellX++) {
-        for (var cellY = 0; cellY < this.cellsY; cellY++) {
-            var cell = this.cells[cellX][cellY];
-            if (cell.isSelected()) {
-                var img = null;
-                if (this.startCell && this.startCell.X == cellX && this.startCell.Y == cellY) {
-                    img = this.startFlagImage;
-                } else if (this.endCell && this.endCell.X == cellX && this.endCell.Y == cellY) {
-                    img = this.finishFlagImage;
-                }
-                // bottom center
-//                this.canvasContext.drawImage(img, cellWidth * cellX + cellWidth / 2 - img.width / 2, cellHeight * cellY + cellHeight / 2 - img.height);
-                // mid center, fixed size
-                this.canvasContext.drawImage(img, cellWidth * cellX, cellHeight * cellY, cellWidth, cellHeight);
-            }
-        }
+    if(this.startCell) {
+        this.canvasContext.drawImage(this.startFlagImage, this.cellWidth * this.startCell.X, this.cellHeight * this.startCell.Y, this.cellWidth, this.cellHeight);
+    }
+    if(this.endCell) {
+        this.canvasContext.drawImage(this.finishFlagImage, this.cellWidth * this.endCell.X, this.cellHeight * this.endCell.Y, this.cellWidth, this.cellHeight);
     }
 };
 
@@ -169,159 +163,9 @@ Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
     this.canvasContext.lineTo(xTo, yTo);
     this.canvasContext.stroke();
 };
-
-// рисует одну ячейку лабиринта
-Maze.prototype.drawBlock = function (cellX, cellY, cell) {
-    var fillStyle = null;
-    var blockType = cell.getType();
-    switch (blockType) {
-        case Cell.TYPE_WALL:
-            fillStyle = this.FILL_STYLE_BLOCK_CELL;
-            break;
-        default:
-            fillStyle = this.FILL_STYLE_EMPTY_CELL;
-            break;
-    }
-    this.canvasContext.fillStyle = fillStyle;
-    this.canvasContext.fillRect(
-        this.cellWidth * cellX,
-        this.cellHeight * cellY,
-        this.cellWidth * (cellX + 1),
-        this.cellHeight * (cellY + 1));
-};
 /***********************************************************/
 // управление состоянием объекта
 
-/**
- * генерирует значение в ячейках лабиринта
- */
-Maze.prototype.generateCells = function () {
-    // заполняем весь лабиринт стеной
-    for (var cellX = 0; cellX < this.cellsX; cellX++) {
-        for (var cellY = 0; cellY < this.cellsY; cellY++) {
-            this.cells[cellX][cellY].setType(Cell.TYPE_WALL);
-        }
-    }
-    // выбираем начальные точки для рисования туннелей
-    var arStartCells = [];
-    for (var i = 0; i < 30; i++) {
-        var startCell = [Math.round(Math.random() * this.cellsX), Math.round(Math.random() * this.cellsY)];
-        arStartCells.push(startCell);
-    }
-    // передаем начальный лабиринт в функцию создания туннелей лабиринта
-    this.generateCellsRecursive(arStartCells);
-};
-
-// рекурсивная функция, рисует туннели в лабиринте анимированно
-Maze.prototype.generateCellsRecursive = function (arGrowingCells) {
-    // for each cell
-    var arGrowingCellsNew = [];
-    for (var i in arGrowingCells) {
-        var currentCell = arGrowingCells[i];
-        // find new cell to continue path
-        var arSideCells = [
-            [-1, 0],
-            [1, 0],
-            [0, -1],
-            [0, 1]
-        ];
-        var bNewCellFound = false;
-        var arAvailableSideCells = [0, 1, 2, 3];
-        var sideCell;
-        while (!bNewCellFound) {
-            if (arAvailableSideCells.length > 0) {
-                var randomIndex = Math.floor(Math.random() * (arAvailableSideCells.length - 0.01));
-                var sideCellIndex = arAvailableSideCells[randomIndex];
-                arAvailableSideCells.splice(randomIndex, 1);
-                sideCell = [currentCell[0] + arSideCells[sideCellIndex][0], currentCell[1] + arSideCells[sideCellIndex][1]];
-                if (this.cells[sideCell[0]] &&
-                    this.cells[sideCell[0]][sideCell[1]] &&
-                    this.cells[sideCell[0]][sideCell[1]].type != Cell.TYPE_EMPTY) {
-                    // check if we could place new path cell
-                    var zeroIndex = arSideCells[sideCellIndex][0] == 0 ? 0 : 1;
-                    var j = -1;
-                    var arTmpSideCells = [];
-                    while (j < 2) {
-                        arTmpSideCells[(j + 1) / 2] = [];
-                        var tmpSideCell = [];
-                        for (var k in currentCell) {
-                            if (k == zeroIndex) {
-                                tmpSideCell[k] = currentCell[k] + j;
-                            } else {
-                                tmpSideCell[k] = currentCell[k] + arSideCells[sideCellIndex][k];
-                            }
-                        }
-                        arTmpSideCells[(j + 1) / 2][0] = tmpSideCell;
-
-                        tmpSideCell = [];
-                        for (var k in currentCell) {
-                            if (k == zeroIndex) {
-                                tmpSideCell[k] = currentCell[k] + j;
-                            } else {
-                                tmpSideCell[k] = currentCell[k];
-                            }
-                        }
-                        arTmpSideCells[(j + 1) / 2][1] = tmpSideCell;
-
-                        j += 2;
-                    }
-                    var bCellValid = true;
-                    for (var j in arTmpSideCells) {
-                        if (this.cells[arTmpSideCells[j][0][0]] &&
-                            this.cells[arTmpSideCells[j][0][0]][arTmpSideCells[j][0][1]] &&
-                            this.cells[arTmpSideCells[j][0][0]][arTmpSideCells[j][0][1]].type == Cell.TYPE_EMPTY &&
-                            this.cells[arTmpSideCells[j][1][0]] &&
-                            this.cells[arTmpSideCells[j][1][0]][arTmpSideCells[j][1][1]] &&
-                            this.cells[arTmpSideCells[j][1][0]][arTmpSideCells[j][1][1]].type == Cell.TYPE_EMPTY) {
-                            bCellValid = false;
-                        }
-                    }
-                    if (bCellValid) {
-                        bNewCellFound = true;
-                    }
-                }
-            } else {
-                sideCell = [];
-                bNewCellFound = true;
-            }
-        }
-        // if found add it to growing cells and set maze cell as empty
-        if (sideCell.length > 0) {
-            if (Math.random() > 0.005) {
-                arGrowingCellsNew.push(sideCell);
-            }
-            this.cells[sideCell[0]][sideCell[1]].type = Cell.TYPE_EMPTY;
-        }
-        // if current cell has no more place to move, than delete it from growing cells
-        var bNoAvailableMove = true;
-        for (var j in arSideCells) {
-            if (this.cells[currentCell[0] + arSideCells[j][0]] &&
-                this.cells[currentCell[0] + arSideCells[j][0]][currentCell[0] + arSideCells[j][1]] &&
-                this.cells[currentCell[0] + arSideCells[j][0]][currentCell[0] + arSideCells[j][1]].type != Cell.TYPE_EMPTY) {
-                bNoAvailableMove = false;
-                break;
-            }
-        }
-        var probabilityOfDelete;
-        if (bNoAvailableMove) {
-            probabilityOfDelete = 1;
-        } else {
-            // else with probability delete current cell from growing cells
-            probabilityOfDelete = 0.88;
-        }
-        if (Math.random() > probabilityOfDelete) {
-            arGrowingCellsNew.push(currentCell);
-        }
-    }
-    // if growing cells is not empty then call itself
-    if (arGrowingCellsNew.length > 0) {
-        var generateFunction = function () {
-            this.generateCellsRecursive(arGrowingCellsNew);
-            this.refresh();
-        };
-        requestAnimFrame(generateFunction.bind(this));
-    }
-};
 
 /**********************************************************************************/
 // выбор начальной и конечной точки лабиринта
@@ -333,8 +177,6 @@ Maze.prototype.setStartPoint = function (cellX, cellY) {
     }
     this.startCell = this.cells[cellX][cellY];
     this.startCell.setSelected(true);
-    this.refresh();
-    this.__setMode(MODE_DEFAULT);
 };
 
 // записывает конечную точку
@@ -344,8 +186,6 @@ Maze.prototype.setEndPoint = function (cellX, cellY) {
     }
     this.endCell = this.cells[cellX][cellY];
     this.endCell.setSelected(true);
-    this.refresh();
-    this.__setMode(MODE_DEFAULT);
 };
 
 // активирует выбор точки маршрута
@@ -367,6 +207,8 @@ Maze.prototype.__startPointPick = function (clickHandler, mode) {
 Maze.prototype.__endPointPick = function () {
     this.canvas.removeEventListener("click", this.pointPickListener);
     this.pointPickListener = null;
+    this.refresh();
+    this.__setMode(MODE_DEFAULT);
 };
 
 // функция отслеживает нажатия мышкой на лабиринте (нужно для установки начальной и конечной точки)
@@ -375,22 +217,14 @@ Maze.prototype.mouseClickListener = function (event, _this) {
     var rect = _this.canvas.getBoundingClientRect();
     var x = event.clientX - rect.left - 1;
     var y = event.clientY - rect.top - 1;
-    var cellWidth = _this.canvasWidth / _this.cellsX;
-    var cellHeight = _this.canvasHeight / _this.cellsY;
-    var cellX = (x - x % cellWidth) / cellWidth;
-    var cellY = (y - y % cellHeight) / cellHeight;
+    var cellX = (x - x % _this.cellWidth) / _this.cellWidth;
+    var cellY = (y - y % _this.cellHeight) / _this.cellHeight;
     if (_this.funPointPickHandler) {
         _this.funPointPickHandler(cellX, cellY);
         _this.funPointPickHandler = null;
     }
     _this.__endPointPick();
 };
-/********************************************************************************************/
-Maze.prototype.setCellType = function (cellX, cellY, type) {
-    // TODO: set type of cell to specified type
-};
-
-
 /********************************************************************************************/
 
 Maze.prototype.__setMode = function (mode) {
@@ -402,14 +236,14 @@ Maze.prototype.setStatusChangeListener = function (funStatusChangeListener) {
     this.statusChangeListener = funStatusChangeListener;
 };
 
-Maze.prototype.setModeChangeListener = function (funModeChangeListener) {
-    this.modeChangeListener = funModeChangeListener;
-};
-
 Maze.prototype.__invokeStatusChangeListener = function (statusMessage) {
     if (this.statusChangeListener) {
         this.statusChangeListener(statusMessage);
     }
+};
+
+Maze.prototype.setModeChangeListener = function (funModeChangeListener) {
+    this.modeChangeListener = funModeChangeListener;
 };
 
 Maze.prototype.__invokeModeChangeListener = function (modeName) {
@@ -420,6 +254,7 @@ Maze.prototype.__invokeModeChangeListener = function (modeName) {
 
 Maze.prototype.solve = function () {
     try {
+        this.refresh();
         this.solver = new Solver(this.cells, this.startCell, this.endCell);
         var requestHandler = this.__requestHandler.bind(this);
         this.solver.addResponseListener(requestHandler);
@@ -460,34 +295,4 @@ Maze.prototype.__requestHandler = function (oResponse) {
 Maze.prototype.__addStep = function (stepStart, stepEnd) {
     this.drawRouteLine(stepStart, stepEnd);
     this.__drawStartAndFinish();
-};
-
-// класс ячейки лабиринта, нужен для упрощения работы с ячейками
-// содержит информацию о типе ячейки (стена или проходимая ячейка) и о том, выбрана ячейка или нет
-function Cell(cellX, cellY, type) {
-    if (!type) type = 0;
-    this.bSelected = false;
-    this.type = type;
-    this.X = cellX;
-    this.Y = cellY;
-}
-
-// возможные типы ячейки
-Cell.TYPE_WALL = 1;
-Cell.TYPE_EMPTY = 0;
-
-Cell.prototype.setSelected = function (bSelected) {
-    this.bSelected = bSelected;
-};
-
-Cell.prototype.isSelected = function () {
-    return this.bSelected;
-};
-
-Cell.prototype.setType = function (type) {
-    this.type = type;
-};
-
-Cell.prototype.getType = function () {
-    return this.type;
 };
