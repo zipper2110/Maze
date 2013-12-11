@@ -97,7 +97,7 @@ function request(oRequestParams, funResponseHandler) {
         }
 
     };
-    req.open('POST', '/solver_hevristic.php', true);
+    req.open('POST', '/solver_interface.php', true);
     req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     req.setRequestHeader("Content-length", sRequest.length);
     req.setRequestHeader("Connection", "close");

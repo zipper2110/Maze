@@ -270,24 +270,24 @@ Maze.prototype.__requestHandler = function (oResponse) {
         var action = oResponse.action;
         if (!action) alert("server returned response with no action specified");
         switch (action) {
-            case "no_action":
-                alert("No action to handle");
-                break;
             case "get_step":
                 // drows new step from route
-                if (oResponse.result == "has_next_step") {
+                if (oResponse.result == 1) {
                     this.__addStep(oResponse.step_start, oResponse.step_end);
                     this.solver.nextStep();
+                    oResponse.message = "step from [" + oResponse.step_start.X + ";" + oResponse.step_start.Y +
+                        "] to [" + oResponse.step_end.X + ";" + oResponse.step_end.Y + "]";
+                } else if(oResponse.result == 2) {
+                    oResponse.message = "Finish reached.";
                 }
-                break;
-            default:
-
                 break;
         }
         status = "Action " + action + ": ";
         status += oResponse.error ? oResponse.error : oResponse.message;
     } catch (e) {
-        status = e.message;
+//        status = e.message;
+        status = "Unexpected error";
+        console.writeln(e.message);
     }
     this.__invokeStatusChangeListener(status);
 };
