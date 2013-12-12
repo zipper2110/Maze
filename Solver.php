@@ -6,24 +6,33 @@
  * Time: 22:58
  */
 
+/*
+ * Class to find route in given maze
+ */
 class Solver {
     private $maze;
     private $start_cell;
     private $finish_cell;
     private $current_cell;
+    private $tree;
     /** @var Step */
     private $step;
 
-    function Solver(&$maze, $start_cell, $finish_cell, &$current_cell) {
+    function Solver(&$maze, $start_cell, $finish_cell, &$current_cell, $tree) {
         $this->maze = $maze;
         $this->start_cell = $start_cell;
         $this->finish_cell = $finish_cell;
         $this->current_cell = $current_cell;
+        $this->tree = $tree;
     }
 
     public function getStep() {
         $this->find_next_step();
         return $this->step;
+    }
+
+    public function getTree() {
+        return $this->tree;
     }
 
     public function getRoute() {
@@ -33,7 +42,7 @@ class Solver {
     private function find_next_step() {
         $step = null;
         if($this->current_cell->X == $this->finish_cell->X && $this->current_cell->Y == $this->finish_cell->Y) {
-            $this->step = new Step($this->current_cell, null, Step::STATUS_FINISH_REACHED);
+            $this->step = new Step($this->current_cell, null, Step::STATUS_FINISH_REACHED, $this->get_branch($this->current_cell));
             return;
         }
         if(!isset($this->current_cell->f)) {
@@ -77,11 +86,15 @@ class Solver {
             }
         }
         if(is_null($closest_cell)) {
-            $this->step = new Step($this->current_cell, null, Step::STATUS_NO_MORE_SELLS_TO_STEP);
+            $this->step = new Step($this->current_cell, null, Step::STATUS_NO_MORE_SELLS_TO_STEP, $this->get_branch($this->current_cell));
             return;
         }
 
-        $this->step = new Step($this->get_used_neighbor($closest_cell), $closest_cell, Step::STATUS_STEP_FOUND);
+        $parent_cell = $this->get_used_neighbor($closest_cell);
+        $tree_id = $this->get_branch($parent_cell);
+        array_push($this->tree[$tree_id], $closest_cell);
+
+        $this->step = new Step($parent_cell, $closest_cell, Step::STATUS_STEP_FOUND, $tree_id);
     }
 
     private function has_available_neighbors($cell) {
@@ -119,10 +132,13 @@ class Solver {
 
     private function get_used_neighbor($cell) {
         $neighbors = $this->get_neighbors($cell);
+        $min_neighbor = null;
         foreach($neighbors as $cell_id => $neighbor) {
-            if(isset($neighbor->used)) return $neighbor;
+            if(isset($neighbor->used) && (!isset($min_neighbor->f) || $neighbor->f < $min_neighbor->f)) {
+                $min_neighbor = $neighbor;
+            }
         }
-        return $cell;
+        return !is_null($min_neighbor) ? $min_neighbor : $cell;
     }
 
     private function cell_is_ground($cellX, $cellY) {
@@ -132,6 +148,49 @@ class Solver {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Finds an id of a tree which contains specified $cell as last element
+     * @param $cell
+     * @return null
+     */
+    private function get_branch($cell) {
+        if(count($this->tree) == 0) {
+            array_push($this->tree, Array($cell));
+            return 0;
+        }
+        $found_branches = Array();
+        foreach($this->tree as $branch_id => $branch) {
+            foreach($branch as $tree_cell_id => $tree_cell) {
+                if($cell->X == $tree_cell->X && $cell->Y == $tree_cell->Y) {
+                    $found_branch['branch_id'] = $branch_id;
+                    $found_branch['cell_id'] = $tree_cell_id;
+                    array_push($found_branches, $found_branch);
+                }
+            }
+        }
+        if(count($found_branches) > 0) {
+            $branch = null;
+            foreach($found_branches as $branch_info_id => $branch_info) {
+                if($branch_info['cell_id'] == count($this->tree[$branch_info['branch_id']]) - 1) {
+                    $branch = $branch_info['branch_id'];
+                }
+            }
+            if(is_null($branch)) {
+                $source_branch = $this->tree[$found_branches[0]['branch_id']];
+                $new_branch = Array();
+                foreach($source_branch as $cell_id => $branch_cell) {
+                    array_push($new_branch, $branch_cell);
+                    if($cell->X == $branch_cell->X && $cell->Y == $branch_cell->Y) {
+                        break;
+                    }
+                }
+                $branch = array_push($this->tree, $new_branch) - 1;
+            }
+            return $branch;
+        }
+        return null;
     }
 
     private function calculate_f(&$cell) {
@@ -145,15 +204,17 @@ class Step {
     private $cell_from;
     private $cell_to;
     private $status;
+    private $tree_id;
 
     const STATUS_STEP_FOUND = 1;
     const STATUS_FINISH_REACHED = 2;
     const STATUS_NO_MORE_SELLS_TO_STEP = 3;
 
-    function Step($cell_from, $cell_to, $status) {
+    function Step($cell_from, $cell_to, $status, $tree_id) {
         $this->cell_from = $cell_from;
         $this->cell_to = $cell_to;
         $this->status = $status;
+        $this->tree_id = $tree_id;
     }
 
     function get_cell_from() {
@@ -166,5 +227,9 @@ class Step {
 
     function get_status() {
         return $this->status;
+    }
+
+    function get_tree_id() {
+        return $this->tree_id;
     }
 }

@@ -134,10 +134,11 @@ Maze.prototype.__drawStartAndFinish = function () {
 };
 
 // рисует один сегмент маршрута между соседними ячейками
-Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
+Maze.prototype.drawRouteLine = function (cellFrom, cellTo, strokeStyle) {
+    strokeStyle = strokeStyle || "#2244cc";
     this.canvasContext.lineCap = 'round';
     this.canvasContext.lineWidth = 6;
-    this.canvasContext.strokeStyle = "#2244cc";
+    this.canvasContext.strokeStyle = strokeStyle;
     this.canvasContext.beginPath();
 
     var xFrom = cellFrom.X * this.cellWidth + this.cellWidth / 2;
@@ -147,6 +148,12 @@ Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
     this.canvasContext.moveTo(xFrom, yFrom);
     this.canvasContext.lineTo(xTo, yTo);
     this.canvasContext.stroke();
+};
+
+Maze.prototype.drawFinalRoute = function (arRoute) {
+   for(var cell_id = 1; cell_id < arRoute.length; cell_id++) {
+       this.drawRouteLine(arRoute[cell_id -1], arRoute[cell_id], "#AA0000");
+   }
 };
 
 /**********************************************************************************/
@@ -260,6 +267,8 @@ Maze.prototype.__requestHandler = function (oResponse) {
                         "] to [" + oResponse.step_end.X + ";" + oResponse.step_end.Y + "]";
                 } else if(oResponse.result == 2) {
                     oResponse.message = "Finish reached.";
+                    this.drawFinalRoute(oResponse.route);
+                    this.__drawStartAndFinish();
                 }
                 break;
         }

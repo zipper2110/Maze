@@ -65,6 +65,7 @@ function set_info($request, &$response)
 
     $_SESSION['current_cell'] = $request->maze[$request->startCell->X][$request->startCell->Y];
     $_SESSION['info_ok'] = true;
+    $_SESSION['tree'] = Array();
 
     $response['message'] = "Maze info received successfully";
 }
@@ -72,15 +73,24 @@ function set_info($request, &$response)
 function get_step(&$response)
 {
     /** @var Solver $solver */
-    $solver = new Solver($_SESSION['maze'], $_SESSION['startCell'], $_SESSION['endCell'], $_SESSION['current_cell']);
+
+    $solver = new Solver(
+        $_SESSION['maze'],
+        $_SESSION['startCell'],
+        $_SESSION['endCell'],
+        $_SESSION['current_cell'],
+        $_SESSION['tree']
+    );
 
     $next_step = $solver->getStep();
     if ($next_step) {
         $_SESSION['current_cell'] = $next_step->get_cell_to();
+        $_SESSION['tree'] = $solver->getTree();
 
         $response['step_start'] = $next_step->get_cell_from();
         $response['step_end'] = $next_step->get_cell_to();
         $response['result'] = $next_step->get_status();
+        $response['route'] = $_SESSION['tree'][$next_step->get_tree_id()];
     } else {
         $response['error'] = 'can\'t find next step';
     }
