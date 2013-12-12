@@ -164,16 +164,8 @@ body {
     opacity: 0.6;
 }
 
-.button i.ok {
-    background-image: url(../img/ok.png);
-}
-
 .button i.go {
     background-image: url(../img/go.png);
-}
-
-.button i.error {
-    background-image: url(../img/error.png);
 }
 
 .button i.start {
@@ -186,10 +178,6 @@ body {
 
 .button i.refresh {
     background-image: url(../img/repeat2.png);
-}
-
-.button i.await {
-    background-image: url(../img/loading2.png);
 }
 
 .button i.path {
