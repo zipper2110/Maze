@@ -1,6 +1,6 @@
 <html>
 <head>
-    <title>LAB</title>
+    <title>Поиск пути в лабиринте</title>
     <meta charset="utf-8">
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/style.css">
@@ -12,13 +12,15 @@
 <body>
 <div class="body-wrapper">
     <div class="page-header">
-        <h1>Поиск пути на произвольной местности</h1>
+        <h1>Поиск пути в лабиринте</h1>
     </div>
     <div class="page-content">
-        <canvas id="mainCanvas" width="630" height="450"></canvas>
+        <canvas id="mainCanvas">
+            Извините, ваш браузер не поддерживает технологии HTML5. Пожалуйста, используйте современный браузер.
+        </canvas>
         <div class="controls">
             <div class="maze-cursor-mode">
-                <p>Текущее действие курсора: </p>
+                <p>Текущее действие курсора:</p>
                 <p id="mazeCursorMode">обычный</p>
             </div>
             <div class="button button-green" onclick="clearStatus(); maze.generate()">
@@ -38,7 +40,6 @@
         </div>
         <div class="status">
             <h3>Клиент-серверное взаимодействие:</h3>
-
             <div id="routeStatusFull"></div>
         </div>
     </div>
@@ -57,6 +58,8 @@
     // выполняется после загрузки html-страницы в браузере
     window.onload = function () {
         mazeCanvas = document.getElementById("mainCanvas");
+        mazeCanvas.width = mazeCanvas.clientWidth;
+        mazeCanvas.height = mazeCanvas.clientHeight;
         // Maze - объект лабиринта, хранящий его состояние и выполняющий операции над ним
         maze = new Maze(mazeCanvas, 42, 30,
                 document.getElementById('wallTexture'),
@@ -75,6 +78,7 @@
         fullStatusRowCount = 0;
     }
 
+    // отображает статус соединения с сервером
     function setStatus(status) {
         document.getElementById('routeStatus').innerHTML = escapeHTML(status);
         document.getElementById('routeStatusFull').innerHTML = fullStatusRowCount++ + ": " + escapeHTML(status) + "<br/>" +
@@ -85,11 +89,13 @@
         document.getElementById('mazeCursorMode').innerHTML = escapeHTML(mode);
     }
 
+    // инициализирует поиск маршрута
     function getRoute() {
         clearStatus();
         maze.solve();
     }
 
+    // экранирует html-теги в строке
     function escapeHTML(string) {
         var escapeChars = [
             {search: "<", replace: "&lt;"},

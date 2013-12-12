@@ -1,4 +1,4 @@
-/* fixed-width page */
+/* общий вид страницы */
 body {
     font-family: cambiria, calibri, sans-serif;
     background: #84F;
@@ -12,7 +12,7 @@ body {
     background: #FFF;
     box-shadow: 0 0 30px rgba(0, 0, 0, 1);
 }
-/* заголовок страницы */
+
 .page-header {
     text-align: center;
     font-size: 35px;
@@ -27,6 +27,8 @@ body {
     border: #000000 1px solid;
     border-radius: 5px;
     display: inline-block;
+    width: 630px;
+    height: 450px;
 }
 
 .controls {
@@ -36,14 +38,13 @@ body {
 }
 
 .maze-cursor-mode {
-    /*height: 50px;*/
     margin: 10px;
 }
 
 #mazeCursorMode {
     margin: 10px 0 0 20px;
     padding: 10px;
-    background: #ffcc88; /*#aacc77*/
+    background: #ffcc88;
     border-radius: 5px;
     display: inline-block;
     color: #444;
@@ -68,7 +69,11 @@ body {
 .button {
     height: 45px;
     border-radius: 3px;
-    box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.4), 0 0 2px rgba(0, 0, 0, 0.8), inset 1px 1px 0px rgba(255, 255, 255, 0.35), inset -1px -1px 0px rgba(255, 255, 255, 0.35);
+    box-shadow:
+        0 1px 1px rgba(0, 0, 0, 0.4),
+        0 0 2px rgba(0, 0, 0, 0.8),
+        inset 1px 1px 0 rgba(255, 255, 255, 0.35),
+        inset -1px -1px 0 rgba(255, 255, 255, 0.35);
     display: block;
     cursor: pointer;
     border: none;
@@ -87,7 +92,7 @@ body {
     padding: 14px 10px;
 }
 
-/* button colors */
+/* цвета кнопок */
 .button-light-green {
     background: #f7fbf4; /* Old browsers */
     background: -moz-linear-gradient(top, #f7fbf4 0%, #dfead5 100%); /* FF3.6+ */
@@ -151,7 +156,7 @@ body {
     background: linear-gradient(to bottom, #BBBBBB 0%, #666666 100%); /* W3C */
 }
 
-/* button icons */
+/* иконки кнопок */
 .button i {
     display: inline-block;
     float: left;
@@ -181,13 +186,11 @@ body {
 }
 
 .button i.path {
-    /*background-image: url(../img/path.png);*/
     background-image: url(../img/textures/path.png);
     opacity: 1;
 }
 
 .button i.wall {
-    /*background-image: url(../img/wall.png);*/
     background-image: url(../img/textures/wall.png);
     opacity: 1;
 }

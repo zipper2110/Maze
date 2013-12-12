@@ -28,6 +28,7 @@ if ($request->action == "set_info") {
     $response['message'] = "Unknown action: " . $request->action;
 }
 
+echo json_encode($response);
 
 function check_info($request)
 {
@@ -84,5 +85,3 @@ function get_step(&$response)
         $response['error'] = 'can\'t find next step';
     }
 }
-
-echo json_encode($response);

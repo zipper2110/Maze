@@ -23,8 +23,8 @@ function Maze(canvasObject, cellsX, cellsY, wallTextureImg, pathTextureImg, star
     this.canvasContext = this.canvas.getContext("2d");
     this.cellsX = cellsX;
     this.cellsY = cellsY;
-    this.canvasWidth = canvasObject.width;
-    this.canvasHeight = canvasObject.height;
+    this.canvasWidth = canvasObject.clientWidth;
+    this.canvasHeight = canvasObject.clientHeight;
     this.cellWidth = this.canvasWidth / cellsX;
     this.cellHeight = this.canvasHeight / cellsY;
 
@@ -39,7 +39,6 @@ function Maze(canvasObject, cellsX, cellsY, wallTextureImg, pathTextureImg, star
 
     this.FILL_STYLE_EMPTY_CELL = this.canvasContext.createPattern(pathTextureImg, 'repeat');
     this.FILL_STYLE_BLOCK_CELL = this.canvasContext.createPattern(wallTextureImg, 'repeat');
-    this.FILL_STYLE_BACKGROUND = "#000000";
 
     this.startFlagImage = startFlagImg;
     this.finishFlagImage = finishFlagImg;
@@ -62,7 +61,7 @@ function Maze(canvasObject, cellsX, cellsY, wallTextureImg, pathTextureImg, star
 Maze.prototype.generate = function () {
     this.clear();
     this.generateCells();
-    this.refresh();
+    this.draw();
 };
 
 /**
@@ -74,15 +73,8 @@ Maze.prototype.clear = function () {
 };
 
 Maze.prototype.generateCells = function() {
-    var funGenerationStepListener = this.redraw.bind(this);
+    var funGenerationStepListener = this.draw.bind(this);
     this.cells = __generateMaze(this.cellsX, this.cellsY, funGenerationStepListener);
-}
-
-/**
- * перерисовывает лабиринт заново
- */
-Maze.prototype.refresh = function () {
-    this.redraw();
 };
 
 // выбор точки старта маршрута
@@ -97,13 +89,6 @@ Maze.prototype.pickEndPoint = function () {
 
 /**********************************************************/
 // управление визуальной частью лабиринта
-
-/**
- * рисует лабиринт
- */
-Maze.prototype.redraw = function () {
-    this.draw();
-};
 
 // отрисовывет ячейки лабиринта
 Maze.prototype.draw = function () {
@@ -163,9 +148,6 @@ Maze.prototype.drawRouteLine = function (cellFrom, cellTo) {
     this.canvasContext.lineTo(xTo, yTo);
     this.canvasContext.stroke();
 };
-/***********************************************************/
-// управление состоянием объекта
-
 
 /**********************************************************************************/
 // выбор начальной и конечной точки лабиринта
@@ -207,7 +189,7 @@ Maze.prototype.__startPointPick = function (clickHandler, mode) {
 Maze.prototype.__endPointPick = function () {
     this.canvas.removeEventListener("click", this.pointPickListener);
     this.pointPickListener = null;
-    this.refresh();
+    this.draw();
     this.__setMode(MODE_DEFAULT);
 };
 
@@ -254,7 +236,7 @@ Maze.prototype.__invokeModeChangeListener = function (modeName) {
 
 Maze.prototype.solve = function () {
     try {
-        this.refresh();
+        this.draw();
         this.solver = new Solver(this.cells, this.startCell, this.endCell);
         var requestHandler = this.__requestHandler.bind(this);
         this.solver.addResponseListener(requestHandler);
@@ -271,7 +253,6 @@ Maze.prototype.__requestHandler = function (oResponse) {
         if (!action) alert("server returned response with no action specified");
         switch (action) {
             case "get_step":
-                // drows new step from route
                 if (oResponse.result == 1) {
                     this.__addStep(oResponse.step_start, oResponse.step_end);
                     this.solver.nextStep();
@@ -285,7 +266,6 @@ Maze.prototype.__requestHandler = function (oResponse) {
         status = "Action " + action + ": ";
         status += oResponse.error ? oResponse.error : oResponse.message;
     } catch (e) {
-//        status = e.message;
         status = "Unexpected error";
         console.writeln(e.message);
     }
