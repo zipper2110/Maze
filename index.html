@@ -15,7 +15,10 @@
         <h1>Поиск пути в лабиринте</h1>
     </div>
     <div class="page-content">
-        <canvas id="mainCanvas">
+        <canvas id="mainCanvas"
+                onmousemove="maze.mouseMoveListener(event, maze, 'mazeCellPosition');"
+                onmouseout="maze.mouseOutListener(event, maze, 'mazeCellPosition')"
+                onmouseover="maze.mouseOverListener(event, maze, 'mazeCellPosition')">
             Извините, ваш браузер не поддерживает технологии HTML5. Пожалуйста, используйте современный браузер.
         </canvas>
         <div class="controls">
@@ -48,6 +51,7 @@
 <img id="pathTexture" src="/img/textures/path.png" style="display: none">
 <img id="startFlagImg" src="/img/textures/target6.png" style="display: none">
 <img id="finishFlagImg" src="/img/textures/target7.png" style="display: none">
+<div id="mazeCellPosition" style="position: absolute; top: 0; left: 0; display: none; background: rgba(255,255,100,0.5); padding: 0 3px; border: #000 1px solid; border-radius: 2px; box-shadow: 3px 3px 1px rgba(0,0,0,0.5)"></div>
 <script type="text/javascript">
     /** @type {Maze} */
     var maze;

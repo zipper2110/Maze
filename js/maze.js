@@ -214,6 +214,29 @@ Maze.prototype.mouseClickListener = function (event, _this) {
     }
     _this.__endPointPick();
 };
+
+Maze.prototype.mouseOverListener = function(event, _this, elementId) {
+    var element = document.getElementById(elementId);
+    element.style.display = "block";
+};
+
+Maze.prototype.mouseOutListener = function(event, _this, elementId) {
+    var element = document.getElementById(elementId);
+    element.style.display = "none";
+};
+
+Maze.prototype.mouseMoveListener = function(event, _this, elementId) {
+    event = event || window.event;
+    var rect = _this.canvas.getBoundingClientRect();
+    var x = event.clientX - rect.left - 1;
+    var y = event.clientY - rect.top - 1;
+    var cellX = (x - x % _this.cellWidth) / _this.cellWidth;
+    var cellY = (y - y % _this.cellHeight) / _this.cellHeight;
+    var element = document.getElementById(elementId);
+    element.innerHTML = cellX + ":" + cellY;
+    element.style.left = event.clientX;
+    element.style.top = event.clientY - 20;
+};
 /********************************************************************************************/
 
 Maze.prototype.__setMode = function (mode) {
@@ -240,6 +263,7 @@ Maze.prototype.__invokeModeChangeListener = function (modeName) {
         this.modeChangeListener(modeName);
     }
 };
+
 
 Maze.prototype.solve = function () {
     try {
